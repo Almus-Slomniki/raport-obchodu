@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Question } from '../data/questions';
 import { ImageUploader } from './ImageUploader';
 import { ImagePreviewList } from './ImagePreviewList';
@@ -6,7 +6,7 @@ import { ImagePreviewList } from './ImagePreviewList';
 type Props = {
   q: Question;
   activeTab: string;
-  setAnswer: (cat: string, id: string, value: boolean) => void;
+  setAnswer: (cat: string, id: string, value: boolean | undefined) => void;
   updateNote: (cat: string, id: string, text: string) => void;
   addImageToQuestion: (cat: string, id: string, files: FileList) => void;
   images?: string[];
@@ -33,11 +33,13 @@ export const QuestionItem: React.FC<Props> = ({
   saveAnswer
 }) => {
 
+  const [showNote, setShowNote] = useState(false);
+  const [showImages, setShowImages] = useState(false);
+
   const handleRemoveImage = (index: number) => {
     const updatedImages = [...images];
     updatedImages.splice(index, 1);
 
-    // aktualizacja imagesState
     setImagesState(prev => ({
       ...prev,
       [activeTab]: {
@@ -46,82 +48,111 @@ export const QuestionItem: React.FC<Props> = ({
       }
     }));
 
-    // aktualizacja pytań
     const updatedQuestions = questions[activeTab].map(question =>
       question.id === q.id ? { ...question, images: updatedImages } : question
     );
     setQuestions(prev => ({ ...prev, [activeTab]: updatedQuestions }));
 
-    // zapis w Supabase
     saveAnswer(auditId, activeTab, { ...q, images: updatedImages });
   };
 
+  const handleToggleAnswer = (value: boolean) => {
+    const newValue = q.answer === value ? undefined : value;
+    setAnswer(activeTab, q.id, newValue);
+  };
+
   return (
-    <div style={{ marginBottom: 25, borderBottom: '1px solid #ccc', paddingBottom: 10 }}>
-      <p style={{ fontSize: 18 }}>{q.text}</p>
+    <div style={{ marginBottom: 10, borderBottom: '1px solid #ccc', paddingBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginBottom:2 }}>
+        <p style={{ fontSize: 14, flex: 1, margin: 0, fontWeight: 500 }}>{q.text}</p>
 
-  <div style={{ display: 'flex', gap: 20, marginBottom: 8 }}>
-  <button
-    onClick={() => setAnswer(activeTab, q.id, true)}
-    style={{
-      padding: '6px 12px',
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: '#28a745',
-      borderRadius: 5,
-      cursor: 'pointer',
-      minWidth: 50,
-      border: q.answer === true ? '2px solid #28a745' : '1px solid #28a745',
-      backgroundColor: q.answer === true ? '#c3e6cb' : '#f0f0f0',
-      boxShadow: q.answer === true ? '0 0 5px rgba(0,0,0,0.2)' : 'none',
-    }}
-  >
-    V
-  </button>
+        <button
+          onClick={() => handleToggleAnswer(true)}
+          style={{
+            padding: '6px 12px',
+            fontSize: 30,
+            fontWeight: 'bold',
+            color: '#28a745',
+            borderRadius: 5,
+            cursor: 'pointer',
+            minWidth: 50,
+            border: q.answer === true ? '2px solid #28a745' : '1px solid #28a745',
+            backgroundColor: q.answer === true ? '#c3e6cb' : '#f0f0f0',
+            boxShadow: q.answer === true ? '0 0 5px rgba(0,0,0,0.2)' : 'none',
+          }}
+        >
+          V
+        </button>
 
-  <button
-    onClick={() => setAnswer(activeTab, q.id, false)}
-    style={{
-      padding: '6px 12px',
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: '#dc3545',
-      borderRadius: 5,
-      cursor: 'pointer',
-      minWidth: 50,
-      border: q.answer === false ? '2px solid #dc3545' : '1px solid #dc3545',
-      backgroundColor: q.answer === false ? '#f5c6cb' : '#f0f0f0',
-      boxShadow: q.answer === false ? '0 0 5px rgba(0,0,0,0.2)' : 'none',
-    }}
-  >
-    X
-  </button>
-</div>
+        <button
+          onClick={() => handleToggleAnswer(false)}
+          style={{
+            padding: '6px 12px',
+            fontSize: 30,
+            fontWeight: 'bold',
+            color: '#dc3545',
+            borderRadius: 5,
+            cursor: 'pointer',
+            minWidth: 50,
+            border: q.answer === false ? '2px solid #dc3545' : '1px solid #dc3545',
+            backgroundColor: q.answer === false ? '#f5c6cb' : '#f0f0f0',
+            boxShadow: q.answer === false ? '0 0 5px rgba(0,0,0,0.2)' : 'none',
+          }}
+        >
+          X
+        </button>
 
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 2 }}>
+          <ImageUploader onUpload={(files) => addImageToQuestion(activeTab, q.id, files)} />
+          {images.length > 0 && (
+            <span
+              style={{ fontSize: 11, color: '#007bff', marginTop: 2, textAlign: 'center', cursor: 'pointer' }}
+              onClick={() => setShowImages(prev => !prev)}
+            >
+              {images.length} zdjęc{images.length > 1 ? 'ia' : 'ie'}
+            </span>
+          )}
+        </div>
 
-      <textarea
-        placeholder="Wpisz własną uwagę..."
-        value={q.note || ''}
-        onChange={(e) => updateNote(activeTab, q.id, e.target.value)}
-        style={{
-          width: '100%',
-          padding: 10,
-          borderRadius: 5,
-          border: '1px solid #ccc',
-          marginBottom: 8,
-          resize: 'vertical',
-        }}
-      />
-
-      <ImageUploader onUpload={(files: FileList) => addImageToQuestion(activeTab, q.id, files)} />
-
-      <div style={{ marginTop: 5, fontStyle: 'italic' }}>
-        {images.length > 0
-          ? `Dodano: ${images.length} plik${images.length > 1 ? 'i' : ''}`
-          : 'Nie dodano pliku'}
+        <button
+          onClick={() => setShowNote(prev => !prev)}
+          style={{
+            width: 35,
+            height: 35,
+            fontSize: 16,
+            borderRadius: 4,
+            border: '1px solid #ccc',
+            backgroundColor: showNote ? '#e0e0e0' : '#f0f0f0',
+            cursor: 'pointer',
+            marginTop: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          title={showNote ? 'Ukryj notatkę' : 'Dodaj notatkę'}
+        >
+          ✏️
+        </button>
       </div>
 
-      <ImagePreviewList images={images} onRemove={handleRemoveImage} />
+      {showNote && (
+        <textarea
+          placeholder="Wpisz własną uwagę..."
+          value={q.note || ''}
+          onChange={(e) => updateNote(activeTab, q.id, e.target.value)}
+          style={{
+            width: '100%',
+            padding: 8,
+            borderRadius: 4,
+            border: '1px solid #ccc',
+            marginBottom: 8,
+            resize: 'vertical',
+            fontSize: 14,
+          }}
+        />
+      )}
+
+      {showImages && <ImagePreviewList images={images} onRemove={handleRemoveImage} />}
     </div>
   );
 };

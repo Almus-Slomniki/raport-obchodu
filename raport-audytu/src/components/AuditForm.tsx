@@ -15,9 +15,7 @@ export const AuditForm: React.FC = () => {
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
 
-  // ---------------------- INIT AUDIT ID ----------------------
   useEffect(() => {
-    // Sprawdź, czy jest w localStorage ostatni niezakończony audyt
     const lastAudit = localStorage.getItem("lastUnfinishedAudit");
     if (lastAudit) {
       setAuditId(parseInt(lastAudit));
@@ -25,11 +23,8 @@ export const AuditForm: React.FC = () => {
     }
   }, []);
 
-  // ---------------------- LOAD DATA ----------------------
   useEffect(() => {
     if (auditId === null) return;
-
-    console.log("🔄 Ładuję dane dla auditId:", auditId);
 
     const load = async () => {
       const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
@@ -45,7 +40,7 @@ export const AuditForm: React.FC = () => {
           return {
             ...q,
             id: questionId,
-            answer: loadedQ?.answer ?? null,
+            answer: loadedQ?.answer ?? undefined,
             note: loadedQ?.note ?? '',
             images: loadedQ?.images ?? [],
           };
@@ -61,7 +56,6 @@ export const AuditForm: React.FC = () => {
     load();
   }, [auditId]);
 
-  // ---------------------- HANDLE USER INPUT ----------------------
   const handleAuditSubmit = () => {
     if (!auditInput) return;
     const num = parseInt(auditInput);
@@ -71,8 +65,7 @@ export const AuditForm: React.FC = () => {
     }
   };
 
-  // ---------------------- SET ANSWER ----------------------
-  const setAnswerFn = (cat: string, id: string, value: boolean) => {
+  const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
     setQuestions(prev => {
       const updatedCategory = prev[cat].map(q => q.id === id ? { ...q, answer: value } : q);
       const updatedQuestion = updatedCategory.find(q => q.id === id);
@@ -80,34 +73,7 @@ export const AuditForm: React.FC = () => {
       return { ...prev, [cat]: updatedCategory };
     });
   };
-const downloadAllImages = async (imagesState: any) => {
-  for (const line of Object.keys(imagesState)) {
-    for (const qId of Object.keys(imagesState[line])) {
-      const images = imagesState[line][qId];
-      for (let i = 0; i < images.length; i++) {
-        const url = images[i];
-        try {
-          const response = await fetch(url);
-          const blob = await response.blob();
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = `${line}_pytanie${qId}_${i + 1}.jpg`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(a.href);
-          await new Promise(r => setTimeout(r, 100)); // <- krótka przerwa
-        } catch (e) {
-          console.error("Błąd pobierania:", url, e);
-        }
-      }
-    }
-  }
-};
 
-
-
-  // ---------------------- UPDATE NOTE ----------------------
   const updateNoteFn = (cat: string, id: string, note: string) => {
     setQuestions(prev => {
       const updatedCategory = prev[cat].map(q => q.id === id ? { ...q, note } : q);
@@ -117,7 +83,6 @@ const downloadAllImages = async (imagesState: any) => {
     });
   };
 
-  // ---------------------- UPLOAD IMAGES ----------------------
   const addImageFn = async (cat: string, id: string, files: FileList) => {
     if (auditId === null) return;
 
@@ -145,22 +110,43 @@ const downloadAllImages = async (imagesState: any) => {
     });
   };
 
-  // ---------------------- RENDER ----------------------
+  const downloadAllImages = async (imagesState: any) => {
+    for (const line of Object.keys(imagesState)) {
+      for (const qId of Object.keys(imagesState[line])) {
+        const images = imagesState[line][qId];
+        for (let i = 0; i < images.length; i++) {
+          const url = images[i];
+          try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `${line}_pytanie${qId}_${i + 1}.jpg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            await new Promise(r => setTimeout(r, 100));
+          } catch (e) {
+            console.error("Błąd pobierania:", url, e);
+          }
+        }
+      }
+    }
+  };
+
   if (auditId === null) {
     return (
       <div style={{ padding: 20, maxWidth: 400, margin: '50px auto', textAlign: 'center' }}>
         <h2>Wpisz numer audytu</h2>
-       <input
-  type="number"
-  value={auditInput}
-  onChange={e => setAuditInput(e.target.value)}
-  onKeyDown={e => {
-    if (e.key === "Enter") handleAuditSubmit();
-  }}
-  placeholder="Numer audytu"
-  style={{ padding: 10, fontSize: 16, width: '100%', marginBottom: 10 }}
-/>
-
+        <input
+          type="number"
+          value={auditInput}
+          onChange={e => setAuditInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") handleAuditSubmit(); }}
+          placeholder="Numer audytu"
+          style={{ padding: 10, fontSize: 16, width: '100%', marginBottom: 10 }}
+        />
         <button
           onClick={handleAuditSubmit}
           style={{
@@ -185,61 +171,61 @@ const downloadAllImages = async (imagesState: any) => {
       <h1>Zagadnienia krytyczne</h1>
       <p>📌 Numer obchodu: <strong>{auditId}</strong></p>
       <AuditActions auditId={auditId} />
-
       <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
-{questions[activeTab]?.map(q => (
-  <QuestionItem
-    key={q.id}
-    q={q}
-    activeTab={activeTab}
-    setAnswer={setAnswerFn}
-    updateNote={updateNoteFn}
-    addImageToQuestion={addImageFn}
-    images={imagesState[activeTab]?.[q.id] || []}
-    auditId={auditId}
-    imagesState={imagesState}
-    setImagesState={setImagesState}
-    questions={questions}
-    setQuestions={setQuestions}
-    saveAnswer={saveAnswer}
-  />
-))}
 
-<div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-  <button
-    style={{
-      padding: '10px 20px',
-      fontSize: 16,
-      backgroundColor: '#1464f4',
-      color: 'white',
-      border: 'none',
-      borderRadius: 6,
-      cursor: 'pointer',
-    }}
-    onClick={() => generatePDF(questions, imagesState)}
-  >
-    📄 Pobierz PDF
-  </button>
+      {questions[activeTab]?.map(q => (
+        <QuestionItem
+          key={q.id}
+          q={q}
+          activeTab={activeTab}
+          setAnswer={setAnswerFn}
+          updateNote={updateNoteFn}
+          addImageToQuestion={addImageFn}
+          images={imagesState[activeTab]?.[q.id] || []}
+          auditId={auditId}
+          imagesState={imagesState}
+          setImagesState={setImagesState}
+          questions={questions}
+          setQuestions={setQuestions}
+          saveAnswer={saveAnswer}
+        />
+      ))}
 
-  <button
-    style={{
-      padding: '10px 20px',
-      fontSize: 16,
-      backgroundColor: 'green',
-      color: 'white',
-      border: 'none',
-      borderRadius: 6,
-      cursor: 'pointer',
-    }}
-onClick={() => exportToExcel(questions,  auditId)}
-  >
-    📊 Eksport do Excel
-  </button>
-  <button onClick={() => downloadAllImages(imagesState)}>
-  Pobierz wszystkie zdjęcia
-</button>
-</div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <button
+          style={{
+            padding: '10px 20px',
+            fontSize: 16,
+            backgroundColor: '#1464f4',
+            color: 'white',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+          }}
+          onClick={() => generatePDF(questions, imagesState)}
+        >
+          📄 Pobierz PDF
+        </button>
 
+        <button
+          style={{
+            padding: '10px 20px',
+            fontSize: 16,
+            backgroundColor: 'green',
+            color: 'white',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+          }}
+          onClick={() => exportToExcel(questions,  auditId)}
+        >
+          📊 Eksport do Excel
+        </button>
+
+        <button onClick={() => downloadAllImages(imagesState)}>
+          Pobierz wszystkie zdjęcia
+        </button>
+      </div>
     </div>
   );
 };
