@@ -138,13 +138,13 @@ export const AuditForm: React.FC = () => {
   if (auditId === null) {
     return (
       <div style={{ padding: 20, maxWidth: 400, margin: '50px auto', textAlign: 'center' }}>
-        <h2>Wpisz numer audytu</h2>
+        <h2>Wpisz numer obchodu</h2>
         <input
           type="number"
           value={auditInput}
           onChange={e => setAuditInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") handleAuditSubmit(); }}
-          placeholder="Numer audytu"
+          placeholder="Numer obchodu"
           style={{ padding: 10, fontSize: 16, width: '100%', marginBottom: 10 }}
         />
         <button
@@ -160,7 +160,7 @@ export const AuditForm: React.FC = () => {
             width: '100%',
           }}
         >
-          Wczytaj audyt
+          Wczytaj obchód
         </button>
       </div>
     );
