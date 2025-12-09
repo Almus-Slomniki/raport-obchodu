@@ -3,9 +3,14 @@ import { QuestionsState, ImagesState } from './components/types';
 import { supabase } from './supabaseClient';
 
 // ---------------------- LOAD DATA ----------------------
-export const loadAuditData = async (auditId: number) => {
+export const loadAuditData = async (auditId: number): Promise<{
+  questions: QuestionsState;
+  images: ImagesState;
+  auditDate: string | null;
+}> => {
   console.log("🔄 Pobieram dane audytu:", auditId);
 
+  // 1️⃣ Pobranie odpowiedzi z audytu
   const { data, error } = await supabase
     .from('audit_answers')
     .select('*')
@@ -13,7 +18,7 @@ export const loadAuditData = async (auditId: number) => {
 
   if (error) {
     console.error('Błąd pobierania danych z Supabase:', error);
-    return { questions: {} as QuestionsState, images: {} as ImagesState };
+    return { questions: {} as QuestionsState, images: {} as ImagesState, auditDate: null };
   }
 
   const questions: QuestionsState = {};
@@ -36,8 +41,21 @@ export const loadAuditData = async (auditId: number) => {
     images[row.category][row.question_id] = parsedImages;
   });
 
-  console.log("📥 Dane załadowane:", questions);
-  return { questions, images };
+  // 2️⃣ Pobranie daty audytu z tabeli 'audits'
+  const { data: auditMeta, error: auditError } = await supabase
+    .from('audits')
+    .select('created_at')
+    .eq('id', auditId)
+    .single();
+
+  if (auditError) {
+    console.error('Błąd pobrania daty audytu:', auditError);
+  }
+
+  const auditDate = auditMeta?.created_at ?? null;
+
+  console.log("📥 Dane załadowane:", questions, "📅 Data audytu:", auditDate);
+  return { questions, images, auditDate };
 };
 
 // ---------------------- SAVE ANSWER ----------------------

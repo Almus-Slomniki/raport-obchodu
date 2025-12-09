@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { categories, initialQuestions } from '../data/questions';
+import { categories, initialQuestions, Question } from '../data/questions';
 import { Tabs } from './Tabs';
 import { QuestionItem } from './QuestionItem';
 import { QuestionsState, ImagesState } from './types';
@@ -14,20 +14,27 @@ export const AuditForm: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(categories[0]);
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
+  const [auditDate, setAuditDate] = useState<string | null>(null);
+  const [isFinished, setIsFinished] = useState(false); // tryb readonly
 
+  // Wczytaj ostatni niezakończony audyt
   useEffect(() => {
-    const lastAudit = localStorage.getItem("lastUnfinishedAudit");
+    const lastAudit = localStorage.getItem('lastUnfinishedAudit');
     if (lastAudit) {
-      setAuditId(parseInt(lastAudit));
-      console.log("🔄 Wczytano ostatni niezakończony audyt:", lastAudit);
+      const num = parseInt(lastAudit);
+      if (!isNaN(num)) setAuditId(num);
     }
   }, []);
 
+  // Wczytaj dane audytu
   useEffect(() => {
     if (auditId === null) return;
 
     const load = async () => {
-      const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
+      const { questions: loadedQuestions, images: loadedImages } =
+        await loadAuditData(auditId);
+
+      setAuditDate(new Date().toISOString());
 
       const fullQuestions: QuestionsState = {};
       const fullImages: ImagesState = {};
@@ -35,7 +42,7 @@ export const AuditForm: React.FC = () => {
       categories.forEach(cat => {
         fullQuestions[cat] = initialQuestions.map((q, index) => {
           const questionId = (index + 1).toString();
-          const loadedQ = loadedQuestions[cat]?.find(lq => lq.id === questionId);
+          const loadedQ = loadedQuestions[cat]?.find((lq: Question) => lq.id === questionId);
 
           return {
             ...q,
@@ -61,30 +68,46 @@ export const AuditForm: React.FC = () => {
     const num = parseInt(auditInput);
     if (!isNaN(num)) {
       setAuditId(num);
-      localStorage.setItem("lastUnfinishedAudit", num.toString());
+      localStorage.setItem('lastUnfinishedAudit', num.toString());
+      setIsFinished(false); // nowy/otwarty audyt
     }
   };
 
+  const handleAuditReset = () => {
+    setAuditId(null);
+    setQuestions({});
+    setImagesState({});
+    setAuditInput('');
+    setActiveTab(categories[0]);
+    setAuditDate(null);
+    setIsFinished(false);
+  };
+
+  // Aktualizacja odpowiedzi
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
+    if (isFinished) return; // blokada w readonly
     setQuestions(prev => {
-      const updatedCategory = prev[cat].map(q => q.id === id ? { ...q, answer: value } : q);
+      const updatedCategory = prev[cat].map(q => (q.id === id ? { ...q, answer: value } : q));
       const updatedQuestion = updatedCategory.find(q => q.id === id);
       if (updatedQuestion && auditId !== null) saveAnswer(auditId, cat, updatedQuestion);
       return { ...prev, [cat]: updatedCategory };
     });
   };
 
+  // Aktualizacja notatki
   const updateNoteFn = (cat: string, id: string, note: string) => {
+    if (isFinished) return;
     setQuestions(prev => {
-      const updatedCategory = prev[cat].map(q => q.id === id ? { ...q, note } : q);
+      const updatedCategory = prev[cat].map(q => (q.id === id ? { ...q, note } : q));
       const updatedQuestion = updatedCategory.find(q => q.id === id);
       if (updatedQuestion && auditId !== null) saveAnswer(auditId, cat, updatedQuestion);
       return { ...prev, [cat]: updatedCategory };
     });
   };
 
+  // Upload zdjęć
   const addImageFn = async (cat: string, id: string, files: FileList) => {
-    if (auditId === null) return;
+    if (auditId === null || isFinished) return;
 
     const uploadedUrls: string[] = [];
     for (let i = 0; i < files.length; i++) {
@@ -110,6 +133,7 @@ export const AuditForm: React.FC = () => {
     });
   };
 
+  // Pobierz wszystkie zdjęcia
   const downloadAllImages = async (imagesState: any) => {
     for (const line of Object.keys(imagesState)) {
       for (const qId of Object.keys(imagesState[line])) {
@@ -119,7 +143,7 @@ export const AuditForm: React.FC = () => {
           try {
             const response = await fetch(url);
             const blob = await response.blob();
-            const a = document.createElement("a");
+            const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = `${line}_pytanie${qId}_${i + 1}.jpg`;
             document.body.appendChild(a);
@@ -128,13 +152,14 @@ export const AuditForm: React.FC = () => {
             URL.revokeObjectURL(a.href);
             await new Promise(r => setTimeout(r, 100));
           } catch (e) {
-            console.error("Błąd pobierania:", url, e);
+            console.error('Błąd pobierania:', url, e);
           }
         }
       }
     }
   };
 
+  // Ekran wpisania numeru audytu
   if (auditId === null) {
     return (
       <div style={{ padding: 20, maxWidth: 400, margin: '50px auto', textAlign: 'center' }}>
@@ -143,7 +168,7 @@ export const AuditForm: React.FC = () => {
           type="number"
           value={auditInput}
           onChange={e => setAuditInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") handleAuditSubmit(); }}
+          onKeyDown={e => { if (e.key === 'Enter') handleAuditSubmit(); }}
           placeholder="Numer obchodu"
           style={{ padding: 10, fontSize: 16, width: '100%', marginBottom: 10 }}
         />
@@ -170,7 +195,16 @@ export const AuditForm: React.FC = () => {
     <div style={{ padding: 20, maxWidth: 900, margin: '0 auto' }}>
       <h1>Zagadnienia krytyczne</h1>
       <p>📌 Numer obchodu: <strong>{auditId}</strong></p>
-      <AuditActions auditId={auditId} />
+      {auditDate && <p>📅 Data rozpoczęcia: <strong>{new Date(auditDate).toLocaleString()}</strong></p>}
+
+ <AuditActions
+  auditId={auditId}
+  isFinished={isFinished}
+  onStartNewAudit={handleAuditReset}  // reset formularza, pozwala wpisać nowy numer
+  onFinishAudit={() => setIsFinished(true)} // blokada edycji
+/>
+
+
       <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {questions[activeTab]?.map(q => (
@@ -188,6 +222,7 @@ export const AuditForm: React.FC = () => {
           questions={questions}
           setQuestions={setQuestions}
           saveAnswer={saveAnswer}
+          isFinished={isFinished} // blokada edycji
         />
       ))}
 
@@ -217,14 +252,12 @@ export const AuditForm: React.FC = () => {
             borderRadius: 6,
             cursor: 'pointer',
           }}
-          onClick={() => exportToExcel(questions,  auditId)}
+          onClick={() => exportToExcel(questions, auditId)}
         >
           📊 Eksport do Excel
         </button>
 
-        <button onClick={() => downloadAllImages(imagesState)}>
-          Pobierz wszystkie zdjęcia
-        </button>
+        <button onClick={() => downloadAllImages(imagesState)}>Pobierz wszystkie zdjęcia</button>
       </div>
     </div>
   );

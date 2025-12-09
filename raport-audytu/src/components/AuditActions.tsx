@@ -1,40 +1,61 @@
-// components/AuditActions.tsx
 import React from 'react';
+import { supabase } from '../supabaseClient';
 
 interface AuditActionsProps {
   auditId: number;
+  isFinished: boolean;
+  onStartNewAudit?: () => void; // reset formularza
+  onFinishAudit?: () => void;   // blokada formularza
 }
 
-export const AuditActions: React.FC<AuditActionsProps> = ({ auditId }) => {
-
-
+export const AuditActions: React.FC<AuditActionsProps> = ({
+  auditId,
+  isFinished,
+  onStartNewAudit,
+  onFinishAudit,
+}) => {
 
   const startNewAudit = () => {
     const confirmNew = window.confirm(
       "Czy na pewno chcesz zakończyć bieżący obchód i rozpocząć nowy?"
     );
-    if (confirmNew) {
-      // Usuń bieżący niezakończony audyt
-      localStorage.removeItem("lastUnfinishedAudit");
-      // Wygeneruj nowy auditId
-      const newId = Math.floor(Math.random() * 100000);
-      localStorage.setItem("auditId", newId.toString());
-      console.log("🆕 Utworzono nowy auditId:", newId);
-      window.location.reload(); // przeładowanie strony z nowym auditId
+    if (!confirmNew) return;
+
+    localStorage.removeItem("lastUnfinishedAudit");
+    if (onStartNewAudit) onStartNewAudit(); // reset formularza
+  };
+
+  const finishAudit = async () => {
+    if (isFinished) return;
+
+    const confirmFinish = window.confirm("Czy na pewno chcesz zakończyć bieżący obchód?");
+    if (!confirmFinish) return;
+
+    try {
+      const { error } = await supabase
+        .from('audit_answers')
+        .update({ is_finished: true, finished_at: new Date() })
+        .eq('audit_id', auditId);
+
+      if (error) {
+        console.error('Błąd zakończenia audytu:', error);
+        alert('Błąd zakończenia audytu.');
+        return;
+      }
+
+      alert(`Obchód ${auditId} został zakończony.`);
+
+      if (onFinishAudit) onFinishAudit(); // ustawienie isFinished = true
+    } catch (err) {
+      console.error('Błąd zakończenia audytu:', err);
+      alert('Błąd zakończenia audytu.');
     }
   };
 
   return (
-    <div
-      style={{
-        margin: '40px 0',      // odstęp od góry i dołu
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 20,               // odstęp między przyciskami
-      }}
-    >
-   
+    <div style={{ margin: '40px 0', display: 'flex', justifyContent: 'center', gap: 20 }}>
       <button
+        onClick={startNewAudit}
         style={{
           padding: '12px 25px',
           fontSize: 16,
@@ -44,9 +65,24 @@ export const AuditActions: React.FC<AuditActionsProps> = ({ auditId }) => {
           borderRadius: 8,
           cursor: 'pointer',
         }}
-        onClick={startNewAudit}
       >
         Nowy obchód
+      </button>
+
+      <button
+        onClick={finishAudit}
+        disabled={isFinished}
+        style={{
+          padding: '12px 25px',
+          fontSize: 16,
+          backgroundColor: isFinished ? '#aaa' : '#28a745',
+          color: 'white',
+          border: 'none',
+          borderRadius: 8,
+          cursor: isFinished ? 'not-allowed' : 'pointer',
+        }}
+      >
+        Zakończ obchód
       </button>
     </div>
   );

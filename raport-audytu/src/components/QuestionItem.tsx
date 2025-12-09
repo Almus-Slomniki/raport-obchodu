@@ -16,6 +16,7 @@ type Props = {
   questions: Record<string, Question[]>;
   setQuestions: React.Dispatch<React.SetStateAction<Record<string, Question[]>>>;
   saveAnswer: (auditId: number, cat: string, question: Question) => void;
+  isFinished?: boolean;
 };
 
 export const QuestionItem: React.FC<Props> = ({
@@ -30,13 +31,15 @@ export const QuestionItem: React.FC<Props> = ({
   setImagesState,
   questions,
   setQuestions,
-  saveAnswer
+  saveAnswer,
+  isFinished = false,
 }) => {
-
   const [showNote, setShowNote] = useState(false);
   const [showImages, setShowImages] = useState(false);
 
   const handleRemoveImage = (index: number) => {
+    if (isFinished) return;
+
     const updatedImages = [...images];
     updatedImages.splice(index, 1);
 
@@ -57,24 +60,28 @@ export const QuestionItem: React.FC<Props> = ({
   };
 
   const handleToggleAnswer = (value: boolean) => {
+    if (isFinished) return;
+
     const newValue = q.answer === value ? undefined : value;
     setAnswer(activeTab, q.id, newValue);
   };
 
   return (
     <div style={{ marginBottom: 10, borderBottom: '1px solid #ccc', paddingBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginBottom:2 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginBottom: 2 }}>
         <p style={{ fontSize: 14, flex: 1, margin: 0, fontWeight: 500 }}>{q.text}</p>
 
+        {/* Przycisk "TAK" */}
         <button
           onClick={() => handleToggleAnswer(true)}
+          disabled={isFinished}
           style={{
             padding: '6px 12px',
             fontSize: 30,
             fontWeight: 'bold',
             color: '#28a745',
             borderRadius: 5,
-            cursor: 'pointer',
+            cursor: isFinished ? 'not-allowed' : 'pointer',
             minWidth: 50,
             border: q.answer === true ? '2px solid #28a745' : '1px solid #28a745',
             backgroundColor: q.answer === true ? '#c3e6cb' : '#f0f0f0',
@@ -84,15 +91,17 @@ export const QuestionItem: React.FC<Props> = ({
           V
         </button>
 
+        {/* Przycisk "NIE" */}
         <button
           onClick={() => handleToggleAnswer(false)}
+          disabled={isFinished}
           style={{
             padding: '6px 12px',
             fontSize: 30,
             fontWeight: 'bold',
             color: '#dc3545',
             borderRadius: 5,
-            cursor: 'pointer',
+            cursor: isFinished ? 'not-allowed' : 'pointer',
             minWidth: 50,
             border: q.answer === false ? '2px solid #dc3545' : '1px solid #dc3545',
             backgroundColor: q.answer === false ? '#f5c6cb' : '#f0f0f0',
@@ -102,8 +111,13 @@ export const QuestionItem: React.FC<Props> = ({
           X
         </button>
 
+        {/* Sekcja zdjęć */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 2 }}>
-          <ImageUploader onUpload={(files) => addImageToQuestion(activeTab, q.id, files)} />
+          {!isFinished && (
+            <ImageUploader
+              onUpload={(files) => addImageToQuestion(activeTab, q.id, files)}
+            />
+          )}
           {images.length > 0 && (
             <span
               style={{ fontSize: 11, color: '#007bff', marginTop: 2, textAlign: 'center', cursor: 'pointer' }}
@@ -114,8 +128,10 @@ export const QuestionItem: React.FC<Props> = ({
           )}
         </div>
 
+        {/* Przycisk notatki */}
         <button
           onClick={() => setShowNote(prev => !prev)}
+          disabled={isFinished}
           style={{
             width: 35,
             height: 35,
@@ -123,7 +139,7 @@ export const QuestionItem: React.FC<Props> = ({
             borderRadius: 4,
             border: '1px solid #ccc',
             backgroundColor: showNote ? '#e0e0e0' : '#f0f0f0',
-            cursor: 'pointer',
+            cursor: isFinished ? 'not-allowed' : 'pointer',
             marginTop: 2,
             display: 'flex',
             alignItems: 'center',
@@ -135,11 +151,13 @@ export const QuestionItem: React.FC<Props> = ({
         </button>
       </div>
 
+      {/* Pole notatki */}
       {showNote && (
         <textarea
           placeholder="Wpisz własną uwagę..."
           value={q.note || ''}
           onChange={(e) => updateNote(activeTab, q.id, e.target.value)}
+          disabled={isFinished}
           style={{
             width: '100%',
             padding: 8,
@@ -148,11 +166,20 @@ export const QuestionItem: React.FC<Props> = ({
             marginBottom: 8,
             resize: 'vertical',
             fontSize: 14,
+            backgroundColor: isFinished ? '#f5f5f5' : 'white'
           }}
         />
       )}
 
-      {showImages && <ImagePreviewList images={images} onRemove={handleRemoveImage} />}
+      {/* Podgląd zdjęć */}
+    {showImages && (
+  <ImagePreviewList
+    images={images}
+    onRemove={handleRemoveImage}
+    disabled={isFinished} // blokuje przycisk po zakończeniu audytu
+  />
+)}
+
     </div>
   );
 };
