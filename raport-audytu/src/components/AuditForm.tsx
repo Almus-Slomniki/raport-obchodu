@@ -16,10 +16,12 @@ export const AuditForm: React.FC = () => {
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
   const [auditDate, setAuditDate] = useState<string | null>(null);
-  const [isFinished, setIsFinished] = useState(false); // read-only mode
+  const [isFinished, setIsFinished] = useState(false);
   const [finishedAudits, setFinishedAudits] = useState<number[]>([]);
+  const [auditorName, setAuditorName] = useState<string>("");
+  const [loading, setLoading] = useState(false);
 
-  // 🔹 Wczytaj zakończone audyty z Supabase
+  // 🔹 Wczytaj zakończone audyty
   useEffect(() => {
     const loadFinished = async () => {
       const { data, error } = await supabase
@@ -32,7 +34,6 @@ export const AuditForm: React.FC = () => {
         setFinishedAudits(uniqueIds);
       }
     };
-
     loadFinished();
   }, []);
 
@@ -50,6 +51,7 @@ export const AuditForm: React.FC = () => {
     if (auditId === null) return;
 
     const load = async () => {
+      setLoading(true);
       const { questions: loadedQuestions, images: loadedImages, auditDate } =
         await loadAuditData(auditId);
 
@@ -62,7 +64,6 @@ export const AuditForm: React.FC = () => {
         fullQuestions[cat] = initialQuestions.map((q, index) => {
           const questionId = (index + 1).toString();
           const loadedQ = loadedQuestions[cat]?.find((lq: Question) => lq.id === questionId);
-
           return {
             ...q,
             id: questionId,
@@ -78,7 +79,17 @@ export const AuditForm: React.FC = () => {
       setQuestions(fullQuestions);
       setImagesState(fullImages);
 
-      // 🔹 Jeśli audyt jest zakończony, blokujemy edycję
+      // 🔹 Pobierz imię audytora z pierwszego wiersza (jeśli istnieje)
+      const { data: auditorData } = await supabase
+        .from("audit_answers")
+        .select("auditor_name")
+        .eq("audit_id", auditId)
+        .limit(1)
+        .single();
+
+      if (auditorData?.auditor_name) setAuditorName(auditorData.auditor_name);
+
+      // 🔹 Sprawdź czy audyt zakończony
       const finishedCheck = await supabase
         .from("audit_answers")
         .select("is_finished")
@@ -86,8 +97,8 @@ export const AuditForm: React.FC = () => {
         .limit(1)
         .single();
 
-      if (finishedCheck.data?.is_finished) setIsFinished(true);
-      else setIsFinished(false);
+      setIsFinished(finishedCheck.data?.is_finished ?? false);
+      setLoading(false);
     };
 
     load();
@@ -97,29 +108,64 @@ export const AuditForm: React.FC = () => {
   const handleAuditSubmit = async () => {
     if (!auditInput) return;
     const num = parseInt(auditInput);
-    if (!isNaN(num)) {
-      // Sprawdź, czy audyt nie jest zakończony
-      const { data, error } = await supabase
-        .from("audit_answers")
-        .select("is_finished")
-        .eq("audit_id", num)
-        .limit(1)
-        .single();
+    if (isNaN(num)) return;
 
-      if (error) {
-        alert("Błąd pobrania audytu.");
-        return;
-      }
+    setLoading(true);
 
-      if (data?.is_finished) {
-        alert("Ten obchód jest zakończony i nie można go edytować.");
-        setAuditId(num);
-        setIsFinished(true);
-      } else {
-        setAuditId(num);
-        localStorage.setItem("lastUnfinishedAudit", num.toString());
-        setIsFinished(false);
+    // Sprawdź, czy audyt istnieje
+    const { data: existing } = await supabase
+      .from("audit_answers")
+      .select("*")
+      .eq("audit_id", num)
+      .limit(1)
+      .single();
+
+    if (!existing) {
+      // 🔹 Nowy audyt → utwórz rekordy
+      for (const cat of categories) {
+        for (let i = 0; i < initialQuestions.length; i++) {
+          const question = initialQuestions[i];
+          const questionId = (i + 1).toString();
+          await supabase.from("audit_answers").insert({
+            audit_id: num,
+            category: cat,
+            question_id: questionId,
+            question_text: question.text,
+            answer: null,
+            note: "",
+            images: JSON.stringify([]),
+            is_finished: false,
+            auditor_name: auditorName.trim() || null,
+            created_at: new Date(),
+          });
+        }
       }
+      localStorage.setItem("lastUnfinishedAudit", num.toString());
+      setAuditId(num);
+      setIsFinished(false);
+      setLoading(false);
+      return;
+    }
+
+    // 🔹 Istniejący audyt
+    if (existing.is_finished) {
+      alert("Ten obchód jest zakończony i nie można go edytować.");
+      setAuditId(num);
+      setIsFinished(true);
+      setLoading(false);
+    } else {
+      setAuditId(num);
+      localStorage.setItem("lastUnfinishedAudit", num.toString());
+      setIsFinished(false);
+
+      // Zapis audytora jeśli podano
+      if (auditorName.trim()) {
+        await supabase
+          .from("audit_answers")
+          .update({ auditor_name: auditorName.trim() })
+          .eq("audit_id", num);
+      }
+      setLoading(false);
     }
   };
 
@@ -131,6 +177,7 @@ export const AuditForm: React.FC = () => {
     setActiveTab(categories[0]);
     setAuditDate(null);
     setIsFinished(false);
+    setAuditorName("");
   };
 
   // 🔹 Aktualizacja odpowiedzi
@@ -216,6 +263,14 @@ export const AuditForm: React.FC = () => {
         <h2>Wpisz numer obchodu</h2>
 
         <input
+          type="text"
+          value={auditorName}
+          onChange={e => setAuditorName(e.target.value)}
+          placeholder="Imię i nazwisko audytora"
+          style={{ padding: 10, fontSize: 16, width: "100%", marginBottom: 10 }}
+        />
+
+        <input
           type="number"
           value={auditInput}
           onChange={e => setAuditInput(e.target.value)}
@@ -238,10 +293,9 @@ export const AuditForm: React.FC = () => {
             marginBottom: 20
           }}
         >
-          Wczytaj obchód
+          {loading ? "Ładowanie..." : "Wczytaj obchód"}
         </button>
 
-        {/* 🔽 Select z zakończonymi audytami */}
         <h3>Lub wybierz zakończony obchód</h3>
         <select
           style={{ padding: 10, fontSize: 16, width: "100%" }}
@@ -249,7 +303,7 @@ export const AuditForm: React.FC = () => {
             const id = Number(e.target.value);
             if (id) {
               setAuditId(id);
-              setIsFinished(true); // read-only
+              setIsFinished(true);
             }
           }}
         >
@@ -269,6 +323,7 @@ export const AuditForm: React.FC = () => {
       <h1>Zagadnienia krytyczne</h1>
       <p>📌 Numer obchodu: <strong>{auditId}</strong></p>
       {auditDate && <p>📅 Data rozpoczęcia: <strong>{new Date(auditDate).toLocaleString()}</strong></p>}
+      {auditorName && <p>🧑 Audytor: <strong>{auditorName}</strong></p>}
 
       <AuditActions
         auditId={auditId}
