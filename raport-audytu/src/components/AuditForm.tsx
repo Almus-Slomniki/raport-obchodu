@@ -8,6 +8,7 @@ import { generatePDF } from "../utils/generatePDF";
 import { AuditActions } from "./AuditActions";
 import { exportToExcel } from "../utils/exportToExcel";
 import { supabase } from "../supabaseClient";
+import { AdminPanel } from "./AdminPanel";
 
 export const AuditForm: React.FC = () => {
   const [auditId, setAuditId] = useState<number | null>(null);
@@ -50,6 +51,9 @@ export const AuditForm: React.FC = () => {
   useEffect(() => {
     if (auditId === null) return;
 
+    // sprawdzenie panelu admina
+    if (auditId === 999 && auditorName.trim().toLowerCase() === "admin") return;
+
     const load = async () => {
       setLoading(true);
       const { questions: loadedQuestions, images: loadedImages, auditDate } =
@@ -79,7 +83,6 @@ export const AuditForm: React.FC = () => {
       setQuestions(fullQuestions);
       setImagesState(fullImages);
 
-      // 🔹 Pobierz imię audytora z pierwszego wiersza (jeśli istnieje)
       const { data: auditorData } = await supabase
         .from("audit_answers")
         .select("auditor_name")
@@ -89,7 +92,6 @@ export const AuditForm: React.FC = () => {
 
       if (auditorData?.auditor_name) setAuditorName(auditorData.auditor_name);
 
-      // 🔹 Sprawdź czy audyt zakończony
       const finishedCheck = await supabase
         .from("audit_answers")
         .select("is_finished")
@@ -102,7 +104,7 @@ export const AuditForm: React.FC = () => {
     };
 
     load();
-  }, [auditId]);
+  }, [auditId, auditorName]);
 
   // 🔹 Obsługa wpisania numeru audytu
   const handleAuditSubmit = async () => {
@@ -110,9 +112,13 @@ export const AuditForm: React.FC = () => {
     const num = parseInt(auditInput);
     if (isNaN(num)) return;
 
+    setAuditId(num);
+
+    // sprawdzenie panelu admina
+    if (num === 999 && auditorName.trim().toLowerCase() === "admin") return;
+
     setLoading(true);
 
-    // Sprawdź, czy audyt istnieje
     const { data: existing } = await supabase
       .from("audit_answers")
       .select("*")
@@ -121,7 +127,6 @@ export const AuditForm: React.FC = () => {
       .single();
 
     if (!existing) {
-      // 🔹 Nowy audyt → utwórz rekordy
       for (const cat of categories) {
         for (let i = 0; i < initialQuestions.length; i++) {
           const question = initialQuestions[i];
@@ -141,24 +146,17 @@ export const AuditForm: React.FC = () => {
         }
       }
       localStorage.setItem("lastUnfinishedAudit", num.toString());
-      setAuditId(num);
       setIsFinished(false);
       setLoading(false);
       return;
     }
 
-    // 🔹 Istniejący audyt
     if (existing.is_finished) {
       alert("Ten obchód jest zakończony i nie można go edytować.");
-      setAuditId(num);
       setIsFinished(true);
       setLoading(false);
     } else {
-      setAuditId(num);
-      localStorage.setItem("lastUnfinishedAudit", num.toString());
       setIsFinished(false);
-
-      // Zapis audytora jeśli podano
       if (auditorName.trim()) {
         await supabase
           .from("audit_answers")
@@ -191,7 +189,6 @@ export const AuditForm: React.FC = () => {
     });
   };
 
-  // 🔹 Aktualizacja notatek
   const updateNoteFn = (cat: string, id: string, note: string) => {
     if (isFinished) return;
     setQuestions(prev => {
@@ -202,7 +199,6 @@ export const AuditForm: React.FC = () => {
     });
   };
 
-  // 🔹 Upload zdjęć
   const addImageFn = async (cat: string, id: string, files: FileList) => {
     if (auditId === null || isFinished) return;
 
@@ -230,7 +226,6 @@ export const AuditForm: React.FC = () => {
     });
   };
 
-  // 🔹 Pobierz wszystkie zdjęcia
   const downloadAllImages = async (imagesState: any) => {
     for (const line of Object.keys(imagesState)) {
       for (const qId of Object.keys(imagesState[line])) {
@@ -256,7 +251,12 @@ export const AuditForm: React.FC = () => {
     }
   };
 
-  // 🔹 Ekran wpisania numeru audytu
+  // 🔹 Ekran logowania lub admin panel
+  if (auditId === 999 && auditorName.trim().toLowerCase() === "admin") {
+    return <AdminPanel auditId={auditId} auditorName={auditorName} />
+;
+  }
+
   if (auditId === null) {
     return (
       <div style={{ padding: 20, maxWidth: 400, margin: "50px auto", textAlign: "center" }}>
