@@ -4,8 +4,8 @@ import { supabase } from '../supabaseClient';
 interface AuditActionsProps {
   auditId: number;
   isFinished: boolean;
-  onStartNewAudit?: () => void; // reset formularza
-  onFinishAudit?: () => void;   // blokada formularza
+  onStartNewAudit?: () => void;
+  onFinishAudit?: () => void;
 }
 
 export const AuditActions: React.FC<AuditActionsProps> = ({
@@ -22,7 +22,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
     if (!confirmNew) return;
 
     localStorage.removeItem("lastUnfinishedAudit");
-    if (onStartNewAudit) onStartNewAudit(); // reset formularza
+    if (onStartNewAudit) onStartNewAudit();
   };
 
   const finishAudit = async () => {
@@ -34,7 +34,10 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
     try {
       const { error } = await supabase
         .from('audit_answers')
-        .update({ is_finished: true, finished_at: new Date() })
+        .update({
+          is_finished: true,
+          finished_at: new Date().toISOString(),
+        })
         .eq('audit_id', auditId);
 
       if (error) {
@@ -45,7 +48,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
 
       alert(`Obchód ${auditId} został zakończony.`);
 
-      if (onFinishAudit) onFinishAudit(); // ustawienie isFinished = true
+      if (onFinishAudit) onFinishAudit();
     } catch (err) {
       console.error('Błąd zakończenia audytu:', err);
       alert('Błąd zakończenia audytu.');
@@ -54,6 +57,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
 
   return (
     <div style={{ margin: '40px 0', display: 'flex', justifyContent: 'center', gap: 20 }}>
+
       <button
         onClick={startNewAudit}
         style={{
@@ -84,6 +88,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
       >
         Zakończ obchód
       </button>
+
     </div>
   );
 };

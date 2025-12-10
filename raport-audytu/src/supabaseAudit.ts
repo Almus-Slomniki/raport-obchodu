@@ -2,7 +2,10 @@ import { Question } from './data/questions';
 import { QuestionsState, ImagesState } from './components/types';
 import { supabase } from './supabaseClient';
 
-// ---------------------- LOAD DATA ----------------------
+/* -------------------------------------------------------------------------- */
+/*                               LOAD AUDIT DATA                               */
+/* -------------------------------------------------------------------------- */
+
 export const loadAuditData = async (auditId: number): Promise<{
   questions: QuestionsState;
   images: ImagesState;
@@ -10,21 +13,21 @@ export const loadAuditData = async (auditId: number): Promise<{
 }> => {
   console.log("🔄 Pobieram dane audytu:", auditId);
 
-  // 1️⃣ Pobranie odpowiedzi z audytu
+  // 1️⃣ Pobranie odpowiedzi
   const { data, error } = await supabase
     .from('audit_answers')
     .select('*')
     .eq('audit_id', auditId);
 
   if (error) {
-    console.error('Błąd pobierania danych z Supabase:', error);
+    console.error('❌ Błąd pobierania odpowiedzi:', error);
     return { questions: {} as QuestionsState, images: {} as ImagesState, auditDate: null };
   }
 
   const questions: QuestionsState = {};
   const images: ImagesState = {};
 
-  data?.forEach((row: any) => {
+  (data || []).forEach((row: any) => {
     if (!questions[row.category]) questions[row.category] = [];
     if (!images[row.category]) images[row.category] = {};
 
@@ -41,7 +44,7 @@ export const loadAuditData = async (auditId: number): Promise<{
     images[row.category][row.question_id] = parsedImages;
   });
 
-  // 2️⃣ Pobranie daty audytu z tabeli 'audits'
+  // 2️⃣ Pobranie daty audytu
   const { data: auditMeta, error: auditError } = await supabase
     .from('audits')
     .select('created_at')
@@ -49,7 +52,7 @@ export const loadAuditData = async (auditId: number): Promise<{
     .single();
 
   if (auditError) {
-    console.error('Błąd pobrania daty audytu:', auditError);
+    console.error('❌ Błąd pobierania daty audytu:', auditError);
   }
 
   const auditDate = auditMeta?.created_at ?? null;
@@ -58,7 +61,10 @@ export const loadAuditData = async (auditId: number): Promise<{
   return { questions, images, auditDate };
 };
 
-// ---------------------- SAVE ANSWER ----------------------
+/* -------------------------------------------------------------------------- */
+/*                                SAVE ANSWER                                 */
+/* -------------------------------------------------------------------------- */
+
 export const saveAnswer = async (auditId: number, category: string, question: Question) => {
   try {
     const imagesString = JSON.stringify(question.images || []);
@@ -78,28 +84,31 @@ export const saveAnswer = async (auditId: number, category: string, question: Qu
 
     const { error } = await supabase
       .from('audit_answers')
-      .upsert({
-        audit_id: auditId,
-        category,
-        question_id: Number(question.id),
-        question_text: question.text,
-        answer: safeAnswer,
-        note: question.note ?? null,
-        images: imagesString,
-        updated_at: new Date(),
-      }, {
-        onConflict: 'audit_id, category, question_id',
-      });
+      .upsert(
+        {
+          audit_id: auditId,
+          category,
+          question_id: Number(question.id),
+          question_text: question.text,
+          answer: safeAnswer,
+          note: question.note ?? null,
+          images: imagesString,
+          updated_at: new Date(),
+        },
+        { onConflict: 'audit_id, category, question_id' }
+      );
 
     if (error) console.error('❌ Błąd zapisu w Supabase:', error);
-    else console.log('✅ Odpowiedź zapisana do Supabase');
+    else console.log('✅ Odpowiedź zapisana');
   } catch (err) {
-    console.error('Błąd zapisu w Supabase:', err);
-    return null;
+    console.error('❌ Błąd zapisu odpowiedzi:', err);
   }
 };
 
-// ---------------------- UPLOAD IMAGE ----------------------
+/* -------------------------------------------------------------------------- */
+/*                                UPLOAD IMAGE                                */
+/* -------------------------------------------------------------------------- */
+
 export const uploadImage = async (
   auditId: number,
   category: string,
@@ -114,14 +123,55 @@ export const uploadImage = async (
 
   if (uploadError) {
     console.error("❌ Błąd uploadu:", uploadError);
-    throw new Error(`Błąd uploadu: ${uploadError.message}`);
+    throw new Error(uploadError.message);
   }
 
-  const { data: urlData } = supabase.storage
+  const { data: urlData } = await supabase.storage
     .from('audit-images')
     .getPublicUrl(path);
 
-  console.log("📸 Zdjęcie zapisane:", urlData?.publicUrl);
-
   return urlData?.publicUrl ?? '';
+};
+
+/* -------------------------------------------------------------------------- */
+/*                         CHECK IF AUDIT FINISHED                            */
+/* -------------------------------------------------------------------------- */
+
+export const checkAuditFinished = async (auditId: number): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('audits')
+    .select('is_finished')
+    .eq('id', auditId)
+    .single();
+
+  if (error || !data) {
+    console.error('❌ checkAuditFinished error:', error);
+    return false;
+  }
+
+  return data.is_finished === true;
+};
+
+/* -------------------------------------------------------------------------- */
+/*                      FETCH LIST OF FINISHED AUDITS                         */
+/* -------------------------------------------------------------------------- */
+
+export const fetchFinishedAudits = async (): Promise<
+  { id: number; date: string }[]
+> => {
+  const { data, error } = await supabase
+    .from('audits')
+    .select('id, created_at')
+    .eq('is_finished', true)
+    .order('id', { ascending: false });
+
+  if (error) {
+    console.error('❌ Błąd pobierania zakończonych audytów:', error);
+    return [];
+  }
+
+  return data.map((a: any) => ({
+    id: a.id,
+    date: new Date(a.created_at).toLocaleString(),
+  }));
 };
