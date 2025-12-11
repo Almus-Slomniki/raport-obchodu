@@ -1,3 +1,4 @@
+// AuditForm.tsx
 import React, { useEffect, useState } from "react";
 import { categories, initialQuestions, Question } from "../data/questions";
 import { QuestionItem } from "./QuestionItem";
@@ -14,7 +15,7 @@ export const AuditForm: React.FC = () => {
   const [auditId, setAuditId] = useState<number | null>(null);
   const [auditInput, setAuditInput] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">("Krytyczne");
-  const [activeTabCategory, setActiveTabCategory] = useState(categories[0]);
+  const [activeTabCategory, setActiveTabCategory] = useState<string>(categories[0]);
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
   const [auditDate, setAuditDate] = useState<string | null>(null);
@@ -22,11 +23,9 @@ export const AuditForm: React.FC = () => {
   const [finishedAudits, setFinishedAudits] = useState<number[]>([]);
   const [auditorName, setAuditorName] = useState<string>("");
   const [loading, setLoading] = useState(false);
-
-  // ---- Non-critical entries
   const [nonCriticalEntries, setNonCriticalEntries] = useState<NonCriticalEntry[]>([]);
 
-  // 🔹 Wczytaj zakończone audyty
+  // ---- Wczytaj zakończone audyty
   useEffect(() => {
     const loadFinished = async () => {
       const { data } = await supabase
@@ -42,16 +41,21 @@ export const AuditForm: React.FC = () => {
     loadFinished();
   }, []);
 
-  // 🔹 Wczytaj ostatni niezakończony audyt
+  // ---- Wczytaj ostatni niezakończony audyt
   useEffect(() => {
     const last = localStorage.getItem("lastUnfinishedAudit");
     if (last) {
       const id = parseInt(last);
       if (!isNaN(id)) setAuditId(id);
     }
+
+    const lastCategory = localStorage.getItem("lastActiveCategory");
+    if (lastCategory && categories.includes(lastCategory)) {
+      setActiveTabCategory(lastCategory);
+    }
   }, []);
 
-  // 🔹 Ładowanie audytu
+  // ---- Ładowanie audytu
   useEffect(() => {
     if (auditId === null) return;
     if (auditId === 999 && auditorName.trim().toLowerCase() === "admin") return;
@@ -111,24 +115,26 @@ export const AuditForm: React.FC = () => {
           .eq("audit_id", auditId)
           .order("id", { ascending: true });
 
-        if (!error && entries) {
-          setNonCriticalEntries(entries as NonCriticalEntry[]);
-        } else {
-          setNonCriticalEntries([]);
-        }
+        if (!error && entries) setNonCriticalEntries(entries as NonCriticalEntry[]);
+        else setNonCriticalEntries([]);
       } catch (err) {
         console.error("❌ Błąd wczytywania non-critical entries:", err);
         setNonCriticalEntries([]);
       }
 
-      setActiveTabCategory(categories[0]);
       setLoading(false);
     };
 
     load();
   }, [auditId, auditorName]);
 
-  // 🔹 Obsługa wpisania numeru
+  // ---- Obsługa wyboru linii / kategorii
+  const handleSelectCategory = (cat: string) => {
+    setActiveTabCategory(cat);
+    localStorage.setItem("lastActiveCategory", cat);
+  };
+
+  // ---- Obsługa wpisania numeru
   const handleAuditSubmit = async () => {
     if (!auditInput) return;
     const num = parseInt(auditInput);
@@ -203,9 +209,10 @@ export const AuditForm: React.FC = () => {
     setIsFinished(false);
     setAuditorName("");
     setNonCriticalEntries([]);
+    localStorage.removeItem("lastActiveCategory");
   };
 
-  // 🔹 Aktualizacja odpowiedzi
+  // ---- Aktualizacja odpowiedzi
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
     if (isFinished) return;
     setQuestions(prev => {
@@ -309,8 +316,7 @@ export const AuditForm: React.FC = () => {
         auditId={auditId}
         isFinished={isFinished}
         onStartNewAudit={handleAuditReset}
-        onFinishAudit={() => setIsFinished(true)}
-      />
+        onFinishAudit={() => setIsFinished(true)} questions={questions} imagesState={imagesState} auditorName={auditorName}      />
 
       <div style={{ display: "flex", marginBottom: 10 }}>
         {["Krytyczne", "Niekrytyczne"].map(tab => (
@@ -338,7 +344,7 @@ export const AuditForm: React.FC = () => {
             {categories.map(cat => (
               <button
                 key={cat}
-                onClick={() => setActiveTabCategory(cat)}
+                onClick={() => handleSelectCategory(cat)}
                 style={{
                   flex: 1,
                   padding: 8,
@@ -377,7 +383,13 @@ export const AuditForm: React.FC = () => {
       {/* Niekrytyczne */}
       {activeTab === "Niekrytyczne" && auditId && (
         <NonCriticalEntries auditId={auditId} />
-      )}
+      )}{/* --- Przyciski eksportu --- */}
+{auditId && Object.keys(questions).length > 0 && (
+  <div style={{ marginTop: 30, display: 'flex', justifyContent: 'center', gap: 20 }}>
+   
+  </div>
+)}
+
     </div>
   );
 };

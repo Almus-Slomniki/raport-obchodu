@@ -1,9 +1,14 @@
 import React from 'react';
 import { supabase } from '../supabaseClient';
+import { generatePDF } from "../utils/generatePDF";
+import { exportToExcel } from "../utils/exportToExcel";
 
 interface AuditActionsProps {
   auditId: number;
   isFinished: boolean;
+  questions: any;
+  imagesState: any;
+  auditorName?: string;
   onStartNewAudit?: () => void;
   onFinishAudit?: () => void;
 }
@@ -11,9 +16,13 @@ interface AuditActionsProps {
 export const AuditActions: React.FC<AuditActionsProps> = ({
   auditId,
   isFinished,
+  questions,
+  imagesState,
+  auditorName,
   onStartNewAudit,
   onFinishAudit,
 }) => {
+
   const startNewAudit = () => {
     const confirmNew = window.confirm(
       "Czy na pewno chcesz zakończyć bieżący obchód i rozpocząć nowy?"
@@ -54,7 +63,15 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
   };
 
   return (
-    <div style={{ margin: '40px 0', display: 'flex', justifyContent: 'center', gap: 20 }}>
+    <div style={{ 
+      margin: '40px 0', 
+      display: 'flex', 
+      flexWrap: "wrap",
+      justifyContent: 'center', 
+      gap: 20 
+    }}>
+      
+      {/* NOWY OBCHÓD */}
       <button
         onClick={startNewAudit}
         style={{
@@ -70,6 +87,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
         Nowy obchód
       </button>
 
+      {/* ZAKOŃCZ OBCHÓD */}
       <button
         onClick={finishAudit}
         disabled={isFinished}
@@ -85,6 +103,42 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
       >
         Zakończ obchód
       </button>
+
+      {/* GENERUJ PDF */}
+      {isFinished && (
+        <button
+          onClick={() => generatePDF(questions, imagesState, auditorName)}
+          style={{
+            padding: '12px 22px',
+            fontSize: 16,
+            backgroundColor: '#1464f4',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            cursor: 'pointer',
+          }}
+        >
+          Generuj PDF
+        </button>
+      )}
+
+      {/* EXCEL */}
+      {isFinished && (
+        <button
+          onClick={() => exportToExcel(questions, auditId)}
+          style={{
+            padding: '12px 22px',
+            fontSize: 16,
+            backgroundColor: '#0a7c32',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            cursor: 'pointer',
+          }}
+        >
+          Eksportuj do Excel
+        </button>
+      )}
     </div>
   );
 };
