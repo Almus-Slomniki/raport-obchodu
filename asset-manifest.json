@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/RaportAudytu/static/css/main.f855e6bc.css",
-    "main.js": "/RaportAudytu/static/js/main.105f1319.js",
+    "main.js": "/RaportAudytu/static/js/main.b02e728a.js",
     "static/js/453.a5a3622f.chunk.js": "/RaportAudytu/static/js/453.a5a3622f.chunk.js",
     "index.html": "/RaportAudytu/index.html",
     "main.f855e6bc.css.map": "/RaportAudytu/static/css/main.f855e6bc.css.map",
-    "main.105f1319.js.map": "/RaportAudytu/static/js/main.105f1319.js.map",
+    "main.b02e728a.js.map": "/RaportAudytu/static/js/main.b02e728a.js.map",
     "453.a5a3622f.chunk.js.map": "/RaportAudytu/static/js/453.a5a3622f.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.f855e6bc.css",
-    "static/js/main.105f1319.js"
+    "static/js/main.b02e728a.js"
   ]
 }
