@@ -7,6 +7,15 @@ export interface Question {
   description?: string | null; // nowy opis pod pytaniem
 }
 
+export interface NonCriticalEntry {
+  id?: number;
+  name: string;
+  line: string;
+  images: string[];
+  note?: string;
+}
+
+
 export const categories = ["CMG.2", "CMG.3", "LWN", "CMG.5", "CMG.6"];
 
 export const initialQuestions: Question[] = [

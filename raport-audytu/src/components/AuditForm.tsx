@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { categories, initialQuestions, Question } from "../data/questions";
-import { Tabs } from "./Tabs";
 import { QuestionItem } from "./QuestionItem";
-import { QuestionsState, ImagesState } from "./types";
+import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
 import { loadAuditData, saveAnswer, uploadImage } from "../supabaseAudit";
 import { generatePDF } from "../utils/generatePDF";
 import { AuditActions } from "./AuditActions";
 import { exportToExcel } from "../utils/exportToExcel";
 import { supabase } from "../supabaseClient";
 import { AdminPanel } from "./AdminPanel";
+import { NonCriticalEntries } from "./Noncriticalentries";
 
 export const AuditForm: React.FC = () => {
   const [auditId, setAuditId] = useState<number | null>(null);
   const [auditInput, setAuditInput] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<string>(categories[0]);
+  const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">("Krytyczne");
+  const [activeTabCategory, setActiveTabCategory] = useState(categories[0]);
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
   const [auditDate, setAuditDate] = useState<string | null>(null);
@@ -21,6 +22,9 @@ export const AuditForm: React.FC = () => {
   const [finishedAudits, setFinishedAudits] = useState<number[]>([]);
   const [auditorName, setAuditorName] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  // ---- Non-critical entries
+  const [nonCriticalEntries, setNonCriticalEntries] = useState<NonCriticalEntry[]>([]);
 
   // 🔹 Wczytaj zakończone audyty
   useEffect(() => {
@@ -55,28 +59,8 @@ export const AuditForm: React.FC = () => {
     const load = async () => {
       setLoading(true);
 
-      // --- 1: Pobranie najstarszego updated_at (data startu) + finished_at (koniec audytu)
-      const { data: dateData } = await supabase
-        .from("audit_answers")
-        .select("updated_at, finished_at")
-        .eq("audit_id", auditId)
-        .order("updated_at", { ascending: true });
-
-      let startDate: string | null = null;
-      let finishDate: string | null = null;
-
-      if (dateData && dateData.length > 0) {
-        startDate = dateData[0].updated_at; // najstarszy wpis = początek audytu
-        finishDate = dateData.find((x: any) => x.finished_at)?.finished_at || null;
-      }
-
-      // IMPORTANT: nie nadpisujemy lokalnej daty jeśli nie mamy nic z bazy
-      setAuditDate(prev => prev || (finishDate || startDate || null));
-
-      // --- 2: Pobieranie reszty danych
-      const { questions: loadedQuestions, images: loadedImages } =
-        await loadAuditData(auditId);
-
+      // 1️⃣ Pobranie pytań krytycznych
+      const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
       const fullQuestions: QuestionsState = {};
       const fullImages: ImagesState = {};
 
@@ -93,14 +77,13 @@ export const AuditForm: React.FC = () => {
             images: loaded?.images ?? [],
           };
         });
-
         fullImages[cat] = loadedImages[cat] || {};
       });
 
       setQuestions(fullQuestions);
       setImagesState(fullImages);
 
-      // --- 3: Pobranie audytora
+      // 2️⃣ Pobranie audytora
       const { data: auditorData } = await supabase
         .from("audit_answers")
         .select("auditor_name")
@@ -110,7 +93,7 @@ export const AuditForm: React.FC = () => {
 
       if (auditorData?.auditor_name) setAuditorName(auditorData.auditor_name);
 
-      // --- 4: Czy audyt zakończony?
+      // 3️⃣ Sprawdzenie czy audyt zakończony
       const { data: finishData } = await supabase
         .from("audit_answers")
         .select("is_finished")
@@ -120,6 +103,25 @@ export const AuditForm: React.FC = () => {
 
       setIsFinished(finishData?.is_finished ?? false);
 
+      // 4️⃣ Wczytaj wpisy niekrytyczne
+      try {
+        const { data: entries, error } = await supabase
+          .from("non_critical_entries")
+          .select("*")
+          .eq("audit_id", auditId)
+          .order("id", { ascending: true });
+
+        if (!error && entries) {
+          setNonCriticalEntries(entries as NonCriticalEntry[]);
+        } else {
+          setNonCriticalEntries([]);
+        }
+      } catch (err) {
+        console.error("❌ Błąd wczytywania non-critical entries:", err);
+        setNonCriticalEntries([]);
+      }
+
+      setActiveTabCategory(categories[0]);
       setLoading(false);
     };
 
@@ -133,7 +135,6 @@ export const AuditForm: React.FC = () => {
     if (isNaN(num)) return;
 
     setAuditId(num);
-
     if (num === 999 && auditorName.trim().toLowerCase() === "admin") return;
 
     setLoading(true);
@@ -145,9 +146,7 @@ export const AuditForm: React.FC = () => {
       .limit(1)
       .single();
 
-    // --- Jeśli nie istnieje → stworzenie nowego
     if (!existing) {
-      // ustawiamy lokalnie datę startu od razu, żeby użytkownik zobaczył datę przy pierwszym wejściu
       const nowIso = new Date().toISOString();
       setAuditDate(nowIso);
 
@@ -166,7 +165,7 @@ export const AuditForm: React.FC = () => {
             images: JSON.stringify([]),
             is_finished: false,
             auditor_name: auditorName.trim() || null,
-            updated_at: nowIso, // ZAPIS daty startu
+            updated_at: nowIso,
           });
         }
       }
@@ -177,7 +176,6 @@ export const AuditForm: React.FC = () => {
       return;
     }
 
-    // --- Audyt istnieje
     if (existing.is_finished) {
       alert("Ten obchód jest zakończony i nie można go edytować.");
       setIsFinished(true);
@@ -199,21 +197,20 @@ export const AuditForm: React.FC = () => {
     setQuestions({});
     setImagesState({});
     setAuditInput("");
-    setActiveTab(categories[0]);
+    setActiveTab("Krytyczne");
+    setActiveTabCategory(categories[0]);
     setAuditDate(null);
     setIsFinished(false);
     setAuditorName("");
+    setNonCriticalEntries([]);
   };
 
   // 🔹 Aktualizacja odpowiedzi
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
     if (isFinished) return;
     setQuestions(prev => {
-      const updatedCategory = prev[cat].map(q =>
-        q.id === id ? { ...q, answer: value } : q
-      );
+      const updatedCategory = prev[cat].map(q => (q.id === id ? { ...q, answer: value } : q));
       const updated = updatedCategory.find(q => q.id === id);
-
       if (updated && auditId !== null) saveAnswer(auditId, cat, updated);
       return { ...prev, [cat]: updatedCategory };
     });
@@ -222,11 +219,8 @@ export const AuditForm: React.FC = () => {
   const updateNoteFn = (cat: string, id: string, note: string) => {
     if (isFinished) return;
     setQuestions(prev => {
-      const updatedCategory = prev[cat].map(q =>
-        q.id === id ? { ...q, note } : q
-      );
+      const updatedCategory = prev[cat].map(q => (q.id === id ? { ...q, note } : q));
       const updated = updatedCategory.find(q => q.id === id);
-
       if (updated && auditId !== null) saveAnswer(auditId, cat, updated);
       return { ...prev, [cat]: updatedCategory };
     });
@@ -234,64 +228,32 @@ export const AuditForm: React.FC = () => {
 
   const addImageFn = async (cat: string, id: string, files: FileList) => {
     if (auditId === null || isFinished) return;
-
     const uploaded: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      uploaded.push(await uploadImage(auditId, cat, id, files[i]));
-    }
+    for (let i = 0; i < files.length; i++) uploaded.push(await uploadImage(auditId, cat, id, files[i]));
 
     setImagesState(prev => ({
       ...prev,
-      [cat]: {
-        ...(prev[cat] || {}),
-        [id]: [...(prev[cat]?.[id] || []), ...uploaded],
-      },
+      [cat]: { ...(prev[cat] || {}), [id]: [...(prev[cat]?.[id] || []), ...uploaded] },
     }));
 
     setQuestions(prev => {
-      const updatedCategory = prev[cat].map(q =>
-        q.id === id ? { ...q, images: [...(q.images || []), ...uploaded] } : q
-      );
+      const updatedCategory = prev[cat].map(q => (q.id === id ? { ...q, images: [...(q.images || []), ...uploaded] } : q));
       const updated = updatedCategory.find(q => q.id === id);
-
       if (updated) saveAnswer(auditId, cat, updated);
       return { ...prev, [cat]: updatedCategory };
     });
   };
 
-  const downloadAllImages = async (imagesState: any) => {
-    for (const line of Object.keys(imagesState)) {
-      for (const qId of Object.keys(imagesState[line])) {
-        for (let i = 0; i < imagesState[line][qId].length; i++) {
-          try {
-            const url = imagesState[line][qId][i];
-            const blob = await (await fetch(url)).blob();
-
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = `${line}_pytanie${qId}_${i + 1}.jpg`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          } catch (e) {
-            console.error("Błąd pobierania zdjęcia:", e);
-          }
-        }
-      }
-    }
-  };
-
-  // 🔹 Admin panel
+  // ---- Admin panel
   if (auditId === 999 && auditorName.trim().toLowerCase() === "admin") {
     return <AdminPanel auditId={auditId} auditorName={auditorName} />;
   }
 
-  // 🔹 Ekran wczytania audytu
+  // ---- Ekran wczytania audytu
   if (auditId === null) {
     return (
       <div style={{ padding: 20, maxWidth: 400, margin: "50px auto", textAlign: "center" }}>
         <h2>Wpisz numer obchodu</h2>
-
         <input
           type="text"
           value={auditorName}
@@ -299,7 +261,6 @@ export const AuditForm: React.FC = () => {
           placeholder="Imię i nazwisko audytora"
           style={{ padding: 10, fontSize: 16, width: "100%", marginBottom: 10 }}
         />
-
         <input
           type="number"
           value={auditInput}
@@ -308,24 +269,12 @@ export const AuditForm: React.FC = () => {
           placeholder="Numer obchodu"
           style={{ padding: 10, fontSize: 16, width: "100%", marginBottom: 10 }}
         />
-
         <button
           onClick={handleAuditSubmit}
-          style={{
-            padding: "10px 20px",
-            fontSize: 16,
-            backgroundColor: "#1464f4",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer",
-            width: "100%",
-            marginBottom: 20
-          }}
+          style={{ padding: "10px 20px", fontSize: 16, backgroundColor: "#1464f4", color: "white", border: "none", borderRadius: 6, width: "100%", marginBottom: 20 }}
         >
           {loading ? "Ładowanie..." : "Wczytaj obchód"}
         </button>
-
         <h3>Zakończone obchody</h3>
         <select
           style={{ padding: 10, fontSize: 16, width: "100%" }}
@@ -334,7 +283,6 @@ export const AuditForm: React.FC = () => {
             if (id) {
               setAuditId(id);
               setIsFinished(true);
-              // gdy wchodzimy do zakończonego audytu, wyczyść lokalną datę (załóżmy że pobierzemy z bazy)
               setAuditDate(null);
             }
           }}
@@ -350,20 +298,12 @@ export const AuditForm: React.FC = () => {
     );
   }
 
-  // 🔹 Ekran główny audytu
+  // ---- Ekran główny audytu
   return (
     <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
-      <h1>Zagadnienia krytyczne</h1>
-
       <p>📌 Numer obchodu: <strong>{auditId}</strong></p>
-
-      {auditDate && (
-        <p>📅 Data: <strong>{new Date(auditDate).toLocaleString()}</strong></p>
-      )}
-
-      {auditorName && (
-        <p>🧑 Audytor: <strong>{auditorName}</strong></p>
-      )}
+      {auditDate && <p>📅 Data: <strong>{new Date(auditDate).toLocaleString()}</strong></p>}
+      {auditorName && <p>🧑 Audytor: <strong>{auditorName}</strong></p>}
 
       <AuditActions
         auditId={auditId}
@@ -372,60 +312,72 @@ export const AuditForm: React.FC = () => {
         onFinishAudit={() => setIsFinished(true)}
       />
 
-      <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
-
-      {questions[activeTab]?.map(q => (
-        <QuestionItem
-          key={q.id}
-          q={q}
-          activeTab={activeTab}
-          setAnswer={setAnswerFn}
-          updateNote={updateNoteFn}
-          addImageToQuestion={addImageFn}
-          images={imagesState[activeTab]?.[q.id] || []}
-          auditId={auditId}
-          imagesState={imagesState}
-          setImagesState={setImagesState}
-          questions={questions}
-          setQuestions={setQuestions}
-          saveAnswer={saveAnswer}
-          isFinished={isFinished}
-        />
-      ))}
-
-      <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-        <button
-          style={{
-            padding: "10px 20px",
-            fontSize: 16,
-            backgroundColor: "#1464f4",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-          }}
-          onClick={() => generatePDF(questions, imagesState, auditorName)}
-        >
-          📄 Pobierz PDF
-        </button>
-
-        <button
-          style={{
-            padding: "10px 20px",
-            fontSize: 16,
-            backgroundColor: "green",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-          }}
-          onClick={() => exportToExcel(questions, auditId)}
-        >
-          📊 Eksport do Excel
-        </button>
-
-        <button onClick={() => downloadAllImages(imagesState)}>
-          Pobierz wszystkie zdjęcia
-        </button>
+      <div style={{ display: "flex", marginBottom: 10 }}>
+        {["Krytyczne", "Niekrytyczne"].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab as "Krytyczne" | "Niekrytyczne")}
+            style={{
+              flex: 1,
+              padding: 12,
+              backgroundColor: activeTab === tab ? "#e3f2fd" : "white",
+              border: "1px solid #ccc",
+              fontWeight: activeTab === tab ? "bold" : "normal",
+              cursor: "pointer"
+            }}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
+
+      {/* Krytyczne */}
+      {activeTab === "Krytyczne" && (
+        <div>
+          <div style={{ display: 'flex', marginBottom: 10 }}>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveTabCategory(cat)}
+                style={{
+                  flex: 1,
+                  padding: 8,
+                  backgroundColor: activeTabCategory === cat ? '#e3f2fd' : 'white',
+                  border: '1px solid #ccc',
+                  fontWeight: activeTabCategory === cat ? 'bold' : 'normal',
+                  cursor: 'pointer'
+                }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {questions[activeTabCategory]?.map(q => (
+            <QuestionItem
+              key={q.id}
+              q={q}
+              activeTab={activeTabCategory}
+              setAnswer={setAnswerFn}
+              updateNote={updateNoteFn}
+              addImageToQuestion={addImageFn}
+              images={imagesState[activeTabCategory]?.[q.id] || []}
+              auditId={auditId}
+              imagesState={imagesState}
+              setImagesState={setImagesState}
+              questions={questions}
+              setQuestions={setQuestions}
+              saveAnswer={saveAnswer}
+              isFinished={isFinished}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Niekrytyczne */}
+      {activeTab === "Niekrytyczne" && auditId && (
+        <NonCriticalEntries auditId={auditId} />
+      )}
     </div>
   );
 };
