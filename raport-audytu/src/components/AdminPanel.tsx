@@ -17,15 +17,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) 
   const [finishedAudits, setFinishedAudits] = useState<FinishedAudit[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Sprawdzenie uprawnień
   useEffect(() => {
-    // Sprawdzenie uprawnień admina
-    if (auditId === 999 && auditorName.trim().toLowerCase() === "admin") {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-    }
+    setIsAdmin(auditId === 999 && auditorName.trim().toLowerCase() === "admin");
   }, [auditId, auditorName]);
 
+  // Ładowanie zakończonych audytów
   useEffect(() => {
     if (!isAdmin) return;
 
@@ -34,28 +31,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) 
         .from("audit_answers")
         .select("audit_id, finished_at")
         .eq("is_finished", true)
-        .order("created_at", { ascending: true });
+        .order("finished_at", { ascending: true });
 
-      if (!error && data) {
-        // Unikalne audyty
-        const uniqueAudits: Record<number, FinishedAudit> = {};
-        data.forEach(a => {
-          if (!uniqueAudits[a.audit_id]) uniqueAudits[a.audit_id] = a;
-        });
-        setFinishedAudits(Object.values(uniqueAudits));
+      if (error) {
+        console.error("Błąd pobierania zakończonych audytów:", error);
+        return;
       }
+
+      // Grupowanie po audit_id, aby wyświetlić tylko jeden wpis na audyt
+      const uniqueAudits: Record<number, FinishedAudit> = {};
+      (data || []).forEach(row => {
+        if (!uniqueAudits[row.audit_id]) uniqueAudits[row.audit_id] = row;
+      });
+
+      setFinishedAudits(Object.values(uniqueAudits));
     };
 
     loadFinishedAudits();
   }, [isAdmin]);
 
+  // Eksport wszystkich zakończonych audytów
   const handleExportAll = async () => {
     setLoading(true);
     try {
       const { data: allAnswers, error } = await supabase
         .from("audit_answers")
         .select("*")
-        .eq("is_finished", true);
+        .in("audit_id", finishedAudits.map(a => a.audit_id));
 
       if (error) {
         console.error(error);
@@ -74,6 +76,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) 
     }
   };
 
+  // Cofnięcie zakończenia audytu
   const handleUnfinishAudit = async (audit_id: number) => {
     const confirmUnfinish = window.confirm(
       `Czy na pewno chcesz oznaczyć audyt ${audit_id} jako niezakończony?`
@@ -101,6 +104,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) 
     <div style={{ padding: 20, maxWidth: 500, margin: "50px auto", textAlign: "center" }}>
       <h2>Panel administratora</h2>
       <p>📊 Pobierz wszystkie zakończone audyty</p>
+
       <button
         onClick={handleExportAll}
         disabled={loading}
@@ -120,10 +124,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) 
 
       <h3>Zakończone audyty</h3>
       {finishedAudits.length === 0 && <p>Brak zakończonych audytów</p>}
+
       <ul style={{ listStyle: "none", padding: 0 }}>
         {finishedAudits.map(audit => (
           <li key={audit.audit_id} style={{ marginBottom: 8 }}>
-            <span>Obchód {audit.audit_id} (Data: {audit.finished_at?.split("T")[0]})</span>
+            <span>Obchód {audit.audit_id} (Data: {audit.finished_at?.split("T")[0] || "brak"})</span>
             <button
               onClick={() => handleUnfinishAudit(audit.audit_id)}
               style={{
