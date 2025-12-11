@@ -179,3 +179,5 @@ export const uploadNonCriticalImage = async (auditId: number, file: File): Promi
   return urlData?.publicUrl ?? "";
 };
 
+export { supabase };
+
