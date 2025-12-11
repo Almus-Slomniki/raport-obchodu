@@ -14,30 +14,22 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId }) => {
   const [newEntryImages, setNewEntryImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Wczytaj wpisy niekrytyczne
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      try {
-        const data = await loadNonCriticalEntries(auditId);
-        // Gwarancja, że w stanie nie pojawi się null
-        setEntries(data ? data.filter(Boolean) : []);
-      } catch (err) {
-        console.error("❌ Błąd wczytywania wpisów niekrytycznych:", err);
-        setEntries([]);
-      }
+      const data = await loadNonCriticalEntries(auditId);
+      setEntries(data || []);
       setLoading(false);
     };
     load();
   }, [auditId]);
 
-  // 🔹 Upload zdjęć
   const addImages = async (files: FileList) => {
     const uploaded: string[] = [];
     for (let i = 0; i < files.length; i++) {
       try {
         const url = await uploadNonCriticalImage(auditId, files[i]);
-        if (url) uploaded.push(url);
+        uploaded.push(url);
       } catch (err) {
         console.error("❌ Błąd uploadu zdjęcia:", err);
       }
@@ -45,29 +37,25 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId }) => {
     setNewEntryImages(prev => [...prev, ...uploaded]);
   };
 
-  // 🔹 Dodanie wpisu
-const handleAddEntry = async () => {
-  if (!newEntryName.trim()) return;
+  const handleAddEntry = async () => {
+    if (!newEntryName.trim()) return;
 
-  const entry: NonCriticalEntry = {
-    name: newEntryName.trim(),
-    line: newEntryLine,
-    images: newEntryImages,
+    const entry: NonCriticalEntry = {
+      name: newEntryName.trim(),
+      line: newEntryLine,
+      images: newEntryImages,
+    };
+
+    const saved = await saveNonCriticalEntry(auditId, entry);
+
+    if (saved) {
+      setEntries(prev => [...prev, saved]);
+      setNewEntryName("");
+      setNewEntryImages([]);
+    } else {
+      console.error("❌ Nie udało się zapisać wpisu niekrytycznego");
+    }
   };
-
-  console.log("💾 Dodaję wpis:", entry);
-  const saved = await saveNonCriticalEntry(auditId, entry);
-  console.log("💾 Wynik zapisu:", saved);
-
-  if (saved) {
-    setEntries(prev => [...prev, saved]);
-    setNewEntryName("");
-    setNewEntryImages([]);
-  } else {
-    console.error("❌ Nie udało się zapisać wpisu niekrytycznego");
-  }
-};
-
 
   return (
     <div style={{ marginTop: 20 }}>
@@ -108,8 +96,8 @@ const handleAddEntry = async () => {
         <p>Brak wpisów niekrytycznych.</p>
       ) : (
         <ul>
-          {entries.map((entry, idx) => (
-            <li key={entry.id ?? `${entry.name}-${idx}`}>
+          {entries.map(entry => (
+            <li key={entry.id || `${entry.name}-${Math.random()}`}>
               <strong>{entry.name || "Brak nazwy"}</strong> (Linia: {entry.line || "Brak linii"})
               {entry.images?.map((img, i) => (
                 <img key={i} src={img} alt="" style={{ width: 80, marginLeft: 5 }} />
