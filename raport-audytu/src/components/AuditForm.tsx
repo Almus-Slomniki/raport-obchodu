@@ -25,14 +25,14 @@ export const AuditForm: React.FC = () => {
   // 🔹 Wczytaj zakończone audyty
   useEffect(() => {
     const loadFinished = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("audit_answers")
         .select("audit_id")
         .eq("is_finished", true);
 
-      if (!error && data) {
-        const uniqueIds = Array.from(new Set(data.map((x: any) => x.audit_id)));
-        setFinishedAudits(uniqueIds);
+      if (data) {
+        const uniq = Array.from(new Set(data.map((x: any) => x.audit_id)));
+        setFinishedAudits(uniq);
       }
     };
     loadFinished();
@@ -40,40 +40,57 @@ export const AuditForm: React.FC = () => {
 
   // 🔹 Wczytaj ostatni niezakończony audyt
   useEffect(() => {
-    const lastAudit = localStorage.getItem("lastUnfinishedAudit");
-    if (lastAudit) {
-      const num = parseInt(lastAudit);
-      if (!isNaN(num)) setAuditId(num);
+    const last = localStorage.getItem("lastUnfinishedAudit");
+    if (last) {
+      const id = parseInt(last);
+      if (!isNaN(id)) setAuditId(id);
     }
   }, []);
 
-  // 🔹 Wczytaj dane audytu
+  // 🔹 Ładowanie audytu
   useEffect(() => {
     if (auditId === null) return;
-
-    // sprawdzenie panelu admina
     if (auditId === 999 && auditorName.trim().toLowerCase() === "admin") return;
 
     const load = async () => {
       setLoading(true);
-      const { questions: loadedQuestions, images: loadedImages, auditDate } =
-        await loadAuditData(auditId);
 
-      setAuditDate(auditDate ?? new Date().toISOString());
+      // --- 1: Pobranie najstarszego updated_at (data startu) + finished_at (koniec audytu)
+      const { data: dateData } = await supabase
+        .from("audit_answers")
+        .select("updated_at, finished_at")
+        .eq("audit_id", auditId)
+        .order("updated_at", { ascending: true });
+
+      let startDate: string | null = null;
+      let finishDate: string | null = null;
+
+      if (dateData && dateData.length > 0) {
+        startDate = dateData[0].updated_at; // najstarszy wpis = początek audytu
+        finishDate = dateData.find((x: any) => x.finished_at)?.finished_at || null;
+      }
+
+      // IMPORTANT: nie nadpisujemy lokalnej daty jeśli nie mamy nic z bazy
+      setAuditDate(prev => prev || (finishDate || startDate || null));
+
+      // --- 2: Pobieranie reszty danych
+      const { questions: loadedQuestions, images: loadedImages } =
+        await loadAuditData(auditId);
 
       const fullQuestions: QuestionsState = {};
       const fullImages: ImagesState = {};
 
       categories.forEach(cat => {
-        fullQuestions[cat] = initialQuestions.map((q, index) => {
-          const questionId = (index + 1).toString();
-          const loadedQ = loadedQuestions[cat]?.find((lq: Question) => lq.id === questionId);
+        fullQuestions[cat] = initialQuestions.map((q, i) => {
+          const qid = (i + 1).toString();
+          const loaded = loadedQuestions[cat]?.find((lq: Question) => lq.id === qid);
+
           return {
             ...q,
-            id: questionId,
-            answer: loadedQ?.answer ?? undefined,
-            note: loadedQ?.note ?? "",
-            images: loadedQ?.images ?? [],
+            id: qid,
+            answer: loaded?.answer ?? undefined,
+            note: loaded?.note ?? "",
+            images: loaded?.images ?? [],
           };
         });
 
@@ -83,6 +100,7 @@ export const AuditForm: React.FC = () => {
       setQuestions(fullQuestions);
       setImagesState(fullImages);
 
+      // --- 3: Pobranie audytora
       const { data: auditorData } = await supabase
         .from("audit_answers")
         .select("auditor_name")
@@ -92,21 +110,23 @@ export const AuditForm: React.FC = () => {
 
       if (auditorData?.auditor_name) setAuditorName(auditorData.auditor_name);
 
-      const finishedCheck = await supabase
+      // --- 4: Czy audyt zakończony?
+      const { data: finishData } = await supabase
         .from("audit_answers")
         .select("is_finished")
         .eq("audit_id", auditId)
         .limit(1)
         .single();
 
-      setIsFinished(finishedCheck.data?.is_finished ?? false);
+      setIsFinished(finishData?.is_finished ?? false);
+
       setLoading(false);
     };
 
     load();
   }, [auditId, auditorName]);
 
-  // 🔹 Obsługa wpisania numeru audytu
+  // 🔹 Obsługa wpisania numeru
   const handleAuditSubmit = async () => {
     if (!auditInput) return;
     const num = parseInt(auditInput);
@@ -114,7 +134,6 @@ export const AuditForm: React.FC = () => {
 
     setAuditId(num);
 
-    // sprawdzenie panelu admina
     if (num === 999 && auditorName.trim().toLowerCase() === "admin") return;
 
     setLoading(true);
@@ -126,31 +145,39 @@ export const AuditForm: React.FC = () => {
       .limit(1)
       .single();
 
+    // --- Jeśli nie istnieje → stworzenie nowego
     if (!existing) {
+      // ustawiamy lokalnie datę startu od razu, żeby użytkownik zobaczył datę przy pierwszym wejściu
+      const nowIso = new Date().toISOString();
+      setAuditDate(nowIso);
+
       for (const cat of categories) {
         for (let i = 0; i < initialQuestions.length; i++) {
-          const question = initialQuestions[i];
-          const questionId = (i + 1).toString();
+          const q = initialQuestions[i];
+          const qid = (i + 1).toString();
+
           await supabase.from("audit_answers").insert({
             audit_id: num,
             category: cat,
-            question_id: questionId,
-            question_text: question.text,
+            question_id: qid,
+            question_text: q.text,
             answer: null,
             note: "",
             images: JSON.stringify([]),
             is_finished: false,
             auditor_name: auditorName.trim() || null,
-            created_at: new Date(),
+            updated_at: nowIso, // ZAPIS daty startu
           });
         }
       }
+
       localStorage.setItem("lastUnfinishedAudit", num.toString());
       setIsFinished(false);
       setLoading(false);
       return;
     }
 
+    // --- Audyt istnieje
     if (existing.is_finished) {
       alert("Ten obchód jest zakończony i nie można go edytować.");
       setIsFinished(true);
@@ -182,9 +209,12 @@ export const AuditForm: React.FC = () => {
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
     if (isFinished) return;
     setQuestions(prev => {
-      const updatedCategory = prev[cat].map(q => (q.id === id ? { ...q, answer: value } : q));
-      const updatedQuestion = updatedCategory.find(q => q.id === id);
-      if (updatedQuestion && auditId !== null) saveAnswer(auditId, cat, updatedQuestion);
+      const updatedCategory = prev[cat].map(q =>
+        q.id === id ? { ...q, answer: value } : q
+      );
+      const updated = updatedCategory.find(q => q.id === id);
+
+      if (updated && auditId !== null) saveAnswer(auditId, cat, updated);
       return { ...prev, [cat]: updatedCategory };
     });
   };
@@ -192,9 +222,12 @@ export const AuditForm: React.FC = () => {
   const updateNoteFn = (cat: string, id: string, note: string) => {
     if (isFinished) return;
     setQuestions(prev => {
-      const updatedCategory = prev[cat].map(q => (q.id === id ? { ...q, note } : q));
-      const updatedQuestion = updatedCategory.find(q => q.id === id);
-      if (updatedQuestion && auditId !== null) saveAnswer(auditId, cat, updatedQuestion);
+      const updatedCategory = prev[cat].map(q =>
+        q.id === id ? { ...q, note } : q
+      );
+      const updated = updatedCategory.find(q => q.id === id);
+
+      if (updated && auditId !== null) saveAnswer(auditId, cat, updated);
       return { ...prev, [cat]: updatedCategory };
     });
   };
@@ -202,26 +235,26 @@ export const AuditForm: React.FC = () => {
   const addImageFn = async (cat: string, id: string, files: FileList) => {
     if (auditId === null || isFinished) return;
 
-    const uploadedUrls: string[] = [];
+    const uploaded: string[] = [];
     for (let i = 0; i < files.length; i++) {
-      const url = await uploadImage(auditId, cat, id, files[i]);
-      uploadedUrls.push(url);
+      uploaded.push(await uploadImage(auditId, cat, id, files[i]));
     }
 
     setImagesState(prev => ({
       ...prev,
       [cat]: {
         ...(prev[cat] || {}),
-        [id]: [...(prev[cat]?.[id] || []), ...uploadedUrls],
+        [id]: [...(prev[cat]?.[id] || []), ...uploaded],
       },
     }));
 
     setQuestions(prev => {
       const updatedCategory = prev[cat].map(q =>
-        q.id === id ? { ...q, images: [...(q.images || []), ...uploadedUrls] } : q
+        q.id === id ? { ...q, images: [...(q.images || []), ...uploaded] } : q
       );
-      const updatedQuestion = updatedCategory.find(q => q.id === id);
-      if (updatedQuestion) saveAnswer(auditId, cat, updatedQuestion);
+      const updated = updatedCategory.find(q => q.id === id);
+
+      if (updated) saveAnswer(auditId, cat, updated);
       return { ...prev, [cat]: updatedCategory };
     });
   };
@@ -229,34 +262,31 @@ export const AuditForm: React.FC = () => {
   const downloadAllImages = async (imagesState: any) => {
     for (const line of Object.keys(imagesState)) {
       for (const qId of Object.keys(imagesState[line])) {
-        const images = imagesState[line][qId];
-        for (let i = 0; i < images.length; i++) {
-          const url = images[i];
+        for (let i = 0; i < imagesState[line][qId].length; i++) {
           try {
-            const response = await fetch(url);
-            const blob = await response.blob();
+            const url = imagesState[line][qId][i];
+            const blob = await (await fetch(url)).blob();
+
             const a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
             a.download = `${line}_pytanie${qId}_${i + 1}.jpg`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-            await new Promise(r => setTimeout(r, 100));
           } catch (e) {
-            console.error("Błąd pobierania:", url, e);
+            console.error("Błąd pobierania zdjęcia:", e);
           }
         }
       }
     }
   };
 
-  // 🔹 Ekran logowania lub admin panel
+  // 🔹 Admin panel
   if (auditId === 999 && auditorName.trim().toLowerCase() === "admin") {
-    return <AdminPanel auditId={auditId} auditorName={auditorName} />
-;
+    return <AdminPanel auditId={auditId} auditorName={auditorName} />;
   }
 
+  // 🔹 Ekran wczytania audytu
   if (auditId === null) {
     return (
       <div style={{ padding: 20, maxWidth: 400, margin: "50px auto", textAlign: "center" }}>
@@ -296,7 +326,7 @@ export const AuditForm: React.FC = () => {
           {loading ? "Ładowanie..." : "Wczytaj obchód"}
         </button>
 
-        <h3>Lub wybierz zakończony obchód</h3>
+        <h3>Zakończone obchody</h3>
         <select
           style={{ padding: 10, fontSize: 16, width: "100%" }}
           onChange={e => {
@@ -304,6 +334,8 @@ export const AuditForm: React.FC = () => {
             if (id) {
               setAuditId(id);
               setIsFinished(true);
+              // gdy wchodzimy do zakończonego audytu, wyczyść lokalną datę (załóżmy że pobierzemy z bazy)
+              setAuditDate(null);
             }
           }}
         >
@@ -318,12 +350,20 @@ export const AuditForm: React.FC = () => {
     );
   }
 
+  // 🔹 Ekran główny audytu
   return (
     <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
       <h1>Zagadnienia krytyczne</h1>
+
       <p>📌 Numer obchodu: <strong>{auditId}</strong></p>
-      {auditDate && <p>📅 Data rozpoczęcia: <strong>{new Date(auditDate).toLocaleString()}</strong></p>}
-      {auditorName && <p>🧑 Audytor: <strong>{auditorName}</strong></p>}
+
+      {auditDate && (
+        <p>📅 Data: <strong>{new Date(auditDate).toLocaleString()}</strong></p>
+      )}
+
+      {auditorName && (
+        <p>🧑 Audytor: <strong>{auditorName}</strong></p>
+      )}
 
       <AuditActions
         auditId={auditId}
@@ -362,9 +402,8 @@ export const AuditForm: React.FC = () => {
             color: "white",
             border: "none",
             borderRadius: 6,
-            cursor: "pointer",
           }}
-          onClick={() => generatePDF(questions, imagesState)}
+          onClick={() => generatePDF(questions, imagesState, auditorName)}
         >
           📄 Pobierz PDF
         </button>
@@ -377,14 +416,15 @@ export const AuditForm: React.FC = () => {
             color: "white",
             border: "none",
             borderRadius: 6,
-            cursor: "pointer",
           }}
           onClick={() => exportToExcel(questions, auditId)}
         >
           📊 Eksport do Excel
         </button>
 
-        <button onClick={() => downloadAllImages(imagesState)}>Pobierz wszystkie zdjęcia</button>
+        <button onClick={() => downloadAllImages(imagesState)}>
+          Pobierz wszystkie zdjęcia
+        </button>
       </div>
     </div>
   );

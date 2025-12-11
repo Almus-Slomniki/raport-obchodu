@@ -14,7 +14,6 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
   onStartNewAudit,
   onFinishAudit,
 }) => {
-
   const startNewAudit = () => {
     const confirmNew = window.confirm(
       "Czy na pewno chcesz zakończyć bieżący obchód i rozpocząć nowy?"
@@ -47,7 +46,6 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
       }
 
       alert(`Obchód ${auditId} został zakończony.`);
-
       if (onFinishAudit) onFinishAudit();
     } catch (err) {
       console.error('Błąd zakończenia audytu:', err);
@@ -57,7 +55,6 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
 
   return (
     <div style={{ margin: '40px 0', display: 'flex', justifyContent: 'center', gap: 20 }}>
-
       <button
         onClick={startNewAudit}
         style={{
@@ -88,7 +85,6 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
       >
         Zakończ obchód
       </button>
-
     </div>
   );
 };

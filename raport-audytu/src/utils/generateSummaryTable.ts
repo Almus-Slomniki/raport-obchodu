@@ -1,25 +1,29 @@
 import jsPDF from "jspdf";
 import { categories, initialQuestions } from "../data/questions";
 
-export const generateSummaryTable = (doc: jsPDF, questions: any) => {
+export const generateSummaryTable = (doc: jsPDF, questions: any, auditorName?: string) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 4;
 
-  let y = 10; // START wyżej
+  let y = 7; // START wyżej
   const baseRowHeight = 16;
   const startX = margin;
 
-  // Szerokości kolumn
-  const firstColWidth = 120;
-  const otherColWidth = (pageWidth - margin * 2 - firstColWidth) / categories.length;
-  const totalWidth = firstColWidth + categories.length * otherColWidth;
-
   // --- Nagłówek dokumentu ---
   doc.setFontSize(18);
+  doc.setFont("Roboto", "bold");
   doc.text("Zagadnienia krytyczne", pageWidth / 2, y, { align: "center" });
-  y += 10;
-  doc.setFontSize(14);
+  y += 5;
 
+  // --- Informacja o audytorze ---
+  if (auditorName) {
+    doc.setFontSize(12);
+    doc.setFont("Roboto", "normal");
+    doc.text(`Audytor: ${auditorName}`, pageWidth / 2, y, { align: "center" });
+    y += 8;
+  }
+
+  doc.setFontSize(14);
 
   // --- Legenda nad tabelą ---
   doc.setFont("Roboto", "bold");
@@ -30,14 +34,17 @@ export const generateSummaryTable = (doc: jsPDF, questions: any) => {
   doc.text("V = zgodność  X = niezgodność", startX + 30, y);
   y += 8; // odstęp przed tabelą
 
-  // Górna linia tabeli
+  // --- Górna linia tabeli ---
+  const firstColWidth = 120;
+  const otherColWidth = (pageWidth - margin * 2 - firstColWidth) / categories.length;
+  const totalWidth = firstColWidth + categories.length * otherColWidth;
   doc.line(startX, y, startX + totalWidth, y);
   const tableStartY = y;
 
   // --- Nagłówki kategorii ---
   categories.forEach((cat, i) => {
     const centerX = startX + firstColWidth + i * otherColWidth + otherColWidth / 2;
-    const centerY = y + baseRowHeight / 2 + 4;
+    const centerY = y + baseRowHeight / 2 + 1;
 
     doc.setFont("Roboto", "bold");
     doc.setFontSize(12);
@@ -116,6 +123,5 @@ export const generateSummaryTable = (doc: jsPDF, questions: any) => {
     doc.line(x, tableStartY, x, y);
   });
 
-  // Zwracamy pozycję dalszej części dokumentu
   return y + 10;
 };

@@ -34,7 +34,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) 
         .from("audit_answers")
         .select("audit_id, finished_at")
         .eq("is_finished", true)
-        .order("audit_id", { ascending: true });
+        .order("created_at", { ascending: true });
 
       if (!error && data) {
         // Unikalne audyty
