@@ -4,9 +4,7 @@ import { categories, initialQuestions, Question } from "../data/questions";
 import { QuestionItem } from "./QuestionItem";
 import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
 import { loadAuditData, saveAnswer, uploadImage } from "../supabaseAudit";
-import { generatePDF } from "../utils/generatePDF";
 import { AuditActions } from "./AuditActions";
-import { exportToExcel } from "../utils/exportToExcel";
 import { supabase } from "../supabaseClient";
 import { AdminPanel } from "./AdminPanel";
 import { NonCriticalEntries } from "./Noncriticalentries";
@@ -41,23 +39,44 @@ export const AuditForm: React.FC = () => {
     loadFinished();
   }, []);
 
-  // ---- Wczytaj ostatni niezakończony audyt i audytora z localStorage
+  // ---- Wczytaj ostatni niezakończony audyt i audytora
   useEffect(() => {
     const lastAudit = localStorage.getItem("lastUnfinishedAudit");
     const lastAuditor = localStorage.getItem("lastAuditorName");
-
-    if (lastAudit) {
-      const id = parseInt(lastAudit);
-      if (!isNaN(id)) setAuditId(id);
-    }
-
-    if (lastAuditor) setAuditorName(lastAuditor);
-
     const lastCategory = localStorage.getItem("lastActiveCategory");
-    if (lastCategory && categories.includes(lastCategory)) {
-      setActiveTabCategory(lastCategory);
-    }
+
+    const restoreAudit = async () => {
+      if (!lastAudit) return;
+
+      const id = parseInt(lastAudit);
+      if (isNaN(id)) return;
+
+      // Sprawdź czy audyt istnieje w bazie
+      const { data: existing } = await supabase
+        .from("audit_answers")
+        .select("*")
+        .eq("audit_id", id)
+        .limit(1)
+        .single();
+
+      if (existing && !existing.is_finished) {
+        setAuditId(id);
+        if (lastAuditor) setAuditorName(lastAuditor);
+        if (lastCategory && categories.includes(lastCategory)) setActiveTabCategory(lastCategory);
+      } else {
+        // usuń nieaktualny audyt z localStorage
+        localStorage.removeItem("lastUnfinishedAudit");
+        localStorage.removeItem("lastAuditorName");
+      }
+    };
+
+    restoreAudit();
   }, []);
+
+  // ---- Zapis audytora do localStorage przy zmianie
+  useEffect(() => {
+    if (auditorName.trim()) localStorage.setItem("lastAuditorName", auditorName.trim());
+  }, [auditorName]);
 
   // ---- Ładowanie audytu
   useEffect(() => {
@@ -131,12 +150,6 @@ export const AuditForm: React.FC = () => {
     load();
   }, [auditId, auditorName]);
 
-  // ---- Obsługa wyboru kategorii
-  const handleSelectCategory = (cat: string) => {
-    setActiveTabCategory(cat);
-    localStorage.setItem("lastActiveCategory", cat);
-  };
-
   // ---- Obsługa wpisania numeru audytu
   const handleAuditSubmit = async () => {
     if (!auditInput || !auditorName.trim()) return;
@@ -144,6 +157,7 @@ export const AuditForm: React.FC = () => {
     if (isNaN(num)) return;
 
     setAuditId(num);
+    localStorage.setItem("lastUnfinishedAudit", num.toString());
     localStorage.setItem("lastAuditorName", auditorName.trim());
 
     if (num === 999 && auditorName.trim().toLowerCase() === "admin") return;
@@ -181,7 +195,6 @@ export const AuditForm: React.FC = () => {
         }
       }
 
-      localStorage.setItem("lastUnfinishedAudit", num.toString());
       setIsFinished(false);
       setLoading(false);
       return;
@@ -190,7 +203,6 @@ export const AuditForm: React.FC = () => {
     if (existing.is_finished) {
       alert("Ten obchód jest zakończony i nie można go edytować.");
       setIsFinished(true);
-      setLoading(false);
     } else {
       setIsFinished(false);
       if (auditorName.trim()) {
@@ -199,9 +211,9 @@ export const AuditForm: React.FC = () => {
           .update({ auditor_name: auditorName.trim() })
           .eq("audit_id", num);
       }
-      localStorage.setItem("lastUnfinishedAudit", num.toString());
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   // ---- Reset audytu
@@ -269,95 +281,94 @@ export const AuditForm: React.FC = () => {
   if (auditId === null) {
     return (
       <div style={{
-  padding: 20,
-  maxWidth: 400,
-  margin: "50px auto",
-  textAlign: "center",
-  backgroundColor: "#f9f9f9",
-  borderRadius: 12,
-  boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-}}>
-  <h2 style={{ marginBottom: 20 }}>Wpisz numer obchodu</h2>
+        padding: 20,
+        maxWidth: 400,
+        margin: "50px auto",
+        textAlign: "center",
+        backgroundColor: "#f9f9f9",
+        borderRadius: 12,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+      }}>
+        <h2 style={{ marginBottom: 20 }}>Wpisz numer obchodu</h2>
 
-  <input
-    type="text"
-    value={auditorName}
-    onChange={e => setAuditorName(e.target.value)}
-    placeholder="Imię i nazwisko audytora"
-    style={{
-      padding: 12,
-      fontSize: 16,
-      width: "100%",
-      marginBottom: 15,
-      borderRadius: 8,
-      border: "1px solid #ccc",
-      boxSizing: "border-box"
-    }}
-  />
+        <input
+          type="text"
+          value={auditorName}
+          onChange={e => setAuditorName(e.target.value)}
+          placeholder="Imię i nazwisko audytora"
+          style={{
+            padding: 12,
+            fontSize: 16,
+            width: "100%",
+            marginBottom: 15,
+            borderRadius: 8,
+            border: "1px solid #ccc",
+            boxSizing: "border-box"
+          }}
+        />
 
-  <input
-    type="number"
-    value={auditInput}
-    onChange={e => setAuditInput(e.target.value)}
-    onKeyDown={e => { if (e.key === "Enter") handleAuditSubmit(); }}
-    placeholder="Numer obchodu"
-    style={{
-      padding: 12,
-      fontSize: 16,
-      width: "100%",
-      marginBottom: 20,
-      borderRadius: 8,
-      border: "1px solid #ccc",
-      boxSizing: "border-box"
-    }}
-  />
+        <input
+          type="number"
+          value={auditInput}
+          onChange={e => setAuditInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") handleAuditSubmit(); }}
+          placeholder="Numer obchodu"
+          style={{
+            padding: 12,
+            fontSize: 16,
+            width: "100%",
+            marginBottom: 20,
+            borderRadius: 8,
+            border: "1px solid #ccc",
+            boxSizing: "border-box"
+          }}
+        />
 
-  <button
-    onClick={handleAuditSubmit}
-    style={{
-      padding: "12px 20px",
-      fontSize: 16,
-      backgroundColor: "#1464f4",
-      color: "white",
-      border: "none",
-      borderRadius: 8,
-      width: "100%",
-      marginBottom: 25,
-      cursor: "pointer",
-      boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
-    }}
-  >
-    {loading ? "Ładowanie..." : "Wczytaj obchód"}
-  </button>
+        <button
+          onClick={handleAuditSubmit}
+          style={{
+            padding: "12px 20px",
+            fontSize: 16,
+            backgroundColor: "#1464f4",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            width: "100%",
+            marginBottom: 25,
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+          }}
+        >
+          {loading ? "Ładowanie..." : "Wczytaj obchód"}
+        </button>
 
-  <h3 style={{ marginBottom: 10 }}>Zakończone obchody</h3>
-  <select
-    style={{
-      padding: 12,
-      fontSize: 16,
-      width: "100%",
-      borderRadius: 8,
-      border: "1px solid #ccc",
-      boxSizing: "border-box"
-    }}
-    onChange={e => {
-      const id = Number(e.target.value);
-      if (id) {
-        setAuditId(id);
-        setIsFinished(true);
-        setAuditDate(null);
-      }
-    }}
-  >
-    <option value="">— wybierz —</option>
-    {finishedAudits.map(id => (
-      <option key={id} value={id}>
-        Obchód {id}
-      </option>
-    ))}
-  </select>
-</div>
-
+        <h3 style={{ marginBottom: 10 }}>Zakończone obchody</h3>
+        <select
+          style={{
+            padding: 12,
+            fontSize: 16,
+            width: "100%",
+            borderRadius: 8,
+            border: "1px solid #ccc",
+            boxSizing: "border-box"
+          }}
+          onChange={e => {
+            const id = Number(e.target.value);
+            if (id) {
+              setAuditId(id);
+              setIsFinished(true);
+              setAuditDate(null);
+            }
+          }}
+        >
+          <option value="">— wybierz —</option>
+          {finishedAudits.map(id => (
+            <option key={id} value={id}>
+              Obchód {id}
+            </option>
+          ))}
+        </select>
+      </div>
     );
   }
 
@@ -404,7 +415,7 @@ export const AuditForm: React.FC = () => {
             {categories.map(cat => (
               <button
                 key={cat}
-                onClick={() => handleSelectCategory(cat)}
+                onClick={() => { setActiveTabCategory(cat); localStorage.setItem("lastActiveCategory", cat); }}
                 style={{
                   flex: 1,
                   padding: 8,
@@ -444,9 +455,6 @@ export const AuditForm: React.FC = () => {
       {activeTab === "Niekrytyczne" && auditId && (
         <NonCriticalEntries auditId={auditId} />
       )}
-
-      {/* Przyciski eksportu PDF/Excel na dole */}
-    
     </div>
   );
 };
