@@ -9,6 +9,7 @@ interface AuditActionsProps {
   questions: any;
   imagesState: any;
   auditorName?: string;
+  leaderName?: string;
   onStartNewAudit?: () => void;
   onFinishAudit?: () => void;
 }
@@ -19,6 +20,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
   questions,
   imagesState,
   auditorName,
+  leaderName,
   onStartNewAudit,
   onFinishAudit,
 }) => {
@@ -45,6 +47,8 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
         .update({
           is_finished: true,
           finished_at: new Date().toISOString(),
+          auditor_name: auditorName?.trim() || null,
+          leader_name: leaderName?.trim() || null, // <-- zapis lidera przy zakończeniu
         })
         .eq('audit_id', auditId);
 
@@ -107,7 +111,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
       {/* GENERUJ PDF */}
       {isFinished && (
         <button
-          onClick={() => generatePDF(questions, imagesState, auditorName)}
+          onClick={() => generatePDF(questions, imagesState, auditorName, leaderName)}
           style={{
             padding: '12px 22px',
             fontSize: 16,

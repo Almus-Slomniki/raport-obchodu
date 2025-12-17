@@ -20,6 +20,7 @@ export const AuditForm: React.FC = () => {
   const [isFinished, setIsFinished] = useState(false);
   const [finishedAudits, setFinishedAudits] = useState<number[]>([]);
   const [auditorName, setAuditorName] = useState<string>("");
+  const [leaderName, setLeaderName] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [nonCriticalEntries, setNonCriticalEntries] = useState<NonCriticalEntry[]>([]);
 
@@ -39,10 +40,11 @@ export const AuditForm: React.FC = () => {
     loadFinished();
   }, []);
 
-  // ---- Wczytaj ostatni niezakończony audyt i audytora
+  // ---- Wczytaj ostatni niezakończony audyt, audytora i lidera
   useEffect(() => {
     const lastAudit = localStorage.getItem("lastUnfinishedAudit");
     const lastAuditor = localStorage.getItem("lastAuditorName");
+    const lastLeader = localStorage.getItem("lastLeaderName");
     const lastCategory = localStorage.getItem("lastActiveCategory");
 
     const restoreAudit = async () => {
@@ -62,11 +64,13 @@ export const AuditForm: React.FC = () => {
       if (existing && !existing.is_finished) {
         setAuditId(id);
         if (lastAuditor) setAuditorName(lastAuditor);
+        if (lastLeader) setLeaderName(lastLeader);
         if (lastCategory && categories.includes(lastCategory)) setActiveTabCategory(lastCategory);
       } else {
         // usuń nieaktualny audyt z localStorage
         localStorage.removeItem("lastUnfinishedAudit");
         localStorage.removeItem("lastAuditorName");
+        localStorage.removeItem("lastLeaderName");
       }
     };
 
@@ -77,6 +81,11 @@ export const AuditForm: React.FC = () => {
   useEffect(() => {
     if (auditorName.trim()) localStorage.setItem("lastAuditorName", auditorName.trim());
   }, [auditorName]);
+
+  // ---- Zapis lidera do localStorage przy zmianie
+  useEffect(() => {
+    if (leaderName.trim()) localStorage.setItem("lastLeaderName", leaderName.trim());
+  }, [leaderName]);
 
   // ---- Ładowanie audytu
   useEffect(() => {
@@ -112,12 +121,13 @@ export const AuditForm: React.FC = () => {
       // 2️⃣ Pobranie audytora
       const { data: auditorData } = await supabase
         .from("audit_answers")
-        .select("auditor_name")
+        .select("auditor_name, leader_name")
         .eq("audit_id", auditId)
         .limit(1)
         .single();
 
       if (auditorData?.auditor_name) setAuditorName(auditorData.auditor_name);
+      if (auditorData?.leader_name) setLeaderName(auditorData.leader_name);
 
       // 3️⃣ Sprawdzenie czy audyt zakończony
       const { data: finishData } = await supabase
@@ -159,6 +169,7 @@ export const AuditForm: React.FC = () => {
     setAuditId(num);
     localStorage.setItem("lastUnfinishedAudit", num.toString());
     localStorage.setItem("lastAuditorName", auditorName.trim());
+    localStorage.setItem("lastLeaderName", leaderName.trim());
 
     if (num === 999 && auditorName.trim().toLowerCase() === "admin") return;
 
@@ -171,6 +182,7 @@ export const AuditForm: React.FC = () => {
       .limit(1)
       .single();
 
+    // ---- Nowy audyt
     if (!existing) {
       const nowIso = new Date().toISOString();
       setAuditDate(nowIso);
@@ -190,6 +202,7 @@ export const AuditForm: React.FC = () => {
             images: JSON.stringify([]),
             is_finished: false,
             auditor_name: auditorName.trim() || null,
+            leader_name: leaderName.trim() || null, // <-- zapis lidera
             updated_at: nowIso,
           });
         }
@@ -200,15 +213,19 @@ export const AuditForm: React.FC = () => {
       return;
     }
 
+    // ---- Istniejący audyt
     if (existing.is_finished) {
       alert("Ten obchód jest zakończony i nie można go edytować.");
       setIsFinished(true);
     } else {
       setIsFinished(false);
-      if (auditorName.trim()) {
+      if (auditorName.trim() || leaderName.trim()) {
         await supabase
           .from("audit_answers")
-          .update({ auditor_name: auditorName.trim() })
+          .update({ 
+            auditor_name: auditorName.trim(), 
+            leader_name: leaderName.trim() // <-- aktualizacja lidera
+          })
           .eq("audit_id", num);
       }
     }
@@ -227,10 +244,12 @@ export const AuditForm: React.FC = () => {
     setAuditDate(null);
     setIsFinished(false);
     setAuditorName("");
+    setLeaderName("");
     setNonCriticalEntries([]);
     localStorage.removeItem("lastActiveCategory");
     localStorage.removeItem("lastUnfinishedAudit");
     localStorage.removeItem("lastAuditorName");
+    localStorage.removeItem("lastLeaderName");
   };
 
   // ---- Aktualizacja odpowiedzi
@@ -296,6 +315,22 @@ export const AuditForm: React.FC = () => {
           value={auditorName}
           onChange={e => setAuditorName(e.target.value)}
           placeholder="Imię i nazwisko audytora"
+          style={{
+            padding: 12,
+            fontSize: 16,
+            width: "100%",
+            marginBottom: 15,
+            borderRadius: 8,
+            border: "1px solid #ccc",
+            boxSizing: "border-box"
+          }}
+        />
+
+        <input
+          type="text"
+          value={leaderName}
+          onChange={e => setLeaderName(e.target.value)}
+          placeholder="Imię i nazwisko Lidera"
           style={{
             padding: 12,
             fontSize: 16,
@@ -378,6 +413,7 @@ export const AuditForm: React.FC = () => {
       <p>📌 Numer obchodu: <strong>{auditId}</strong></p>
       {auditDate && <p>📅 Data: <strong>{new Date(auditDate).toLocaleString()}</strong></p>}
       {auditorName && <p>🧑 Audytor: <strong>{auditorName}</strong></p>}
+      {leaderName && <p>👤 Lider: <strong>{leaderName}</strong></p>}
 
       <AuditActions
         auditId={auditId}
@@ -387,6 +423,7 @@ export const AuditForm: React.FC = () => {
         questions={questions}
         imagesState={imagesState}
         auditorName={auditorName}
+          leaderName={leaderName}
       />
 
       <div style={{ display: "flex", marginBottom: 10 }}>

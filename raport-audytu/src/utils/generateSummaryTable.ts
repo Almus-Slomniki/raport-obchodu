@@ -1,7 +1,12 @@
 import jsPDF from "jspdf";
 import { categories, initialQuestions } from "../data/questions";
 
-export const generateSummaryTable = (doc: jsPDF, questions: any, auditorName?: string) => {
+export const generateSummaryTable = (
+  doc: jsPDF,
+  questions: any,
+  auditorName?: string,
+  leaderName?: string
+) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 4;
 
@@ -20,6 +25,14 @@ export const generateSummaryTable = (doc: jsPDF, questions: any, auditorName?: s
     doc.setFontSize(12);
     doc.setFont("Roboto", "normal");
     doc.text(`Audytor: ${auditorName}`, pageWidth / 2, y, { align: "center" });
+    y += 6;
+  }
+
+  // --- Informacja o liderze ---
+  if (leaderName) {
+    doc.setFontSize(12);
+    doc.setFont("Roboto", "normal");
+    doc.text(`Lider: ${leaderName}`, pageWidth / 2, y, { align: "center" });
     y += 8;
   }
 
