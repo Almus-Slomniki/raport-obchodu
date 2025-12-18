@@ -10,7 +10,7 @@ export const generateSummaryTable = (
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 4;
 
-  let y = 7; // START wyżej
+  let y = 8; // START wyżej
   const baseRowHeight = 16;
   const startX = margin;
 
@@ -18,7 +18,7 @@ export const generateSummaryTable = (
   doc.setFontSize(18);
   doc.setFont("Roboto", "bold");
   doc.text("Zagadnienia krytyczne", pageWidth / 2, y, { align: "center" });
-  y += 5;
+  y += 7;
 
   // --- Informacja o audytorze ---
   if (auditorName) {
@@ -33,7 +33,7 @@ export const generateSummaryTable = (
     doc.setFontSize(12);
     doc.setFont("Roboto", "normal");
     doc.text(`Lider: ${leaderName}`, pageWidth / 2, y, { align: "center" });
-    y += 8;
+    y += 6;
   }
 
   doc.setFontSize(14);
@@ -45,7 +45,7 @@ export const generateSummaryTable = (
   doc.setFont("Roboto", "normal");
   doc.setFontSize(10);
   doc.text("V = zgodność  X = niezgodność", startX + 30, y);
-  y += 8; // odstęp przed tabelą
+  y += 3; // odstęp przed tabelą
 
   // --- Górna linia tabeli ---
   const firstColWidth = 120;
