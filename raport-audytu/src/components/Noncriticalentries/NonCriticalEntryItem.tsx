@@ -1,3 +1,4 @@
+// NonCriticalEntryItem.tsx
 import React from "react";
 import { NonCriticalEntry } from "../types";
 
@@ -63,22 +64,19 @@ export const NonCriticalEntryItem: React.FC<Props> = ({ entry, onUpdate, onRemov
 
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <strong style={{ fontSize: 16 }}>{entry.name || "Brak nazwy"}</strong>
-        <div style={{ fontSize: 14, color: "#333" }}>Linia: {entry.line || "Brak linii"}</div>
+        <div style={{ fontSize: 14, color: "#333" }}>
+          Linia: {entry.line || "Brak linii"}
+        </div>
         {entry.note && (
-          <div style={{ fontStyle: "italic", color: "#555", fontSize: 13 }}>Uwagi: {entry.note}</div>
+          <div style={{ fontStyle: "italic", color: "#555", fontSize: 13 }}>
+            Uwagi: {entry.note}
+          </div>
         )}
       </div>
 
       {/* Zdjęcia */}
       {entry.images?.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginTop: 8,
-          }}
-        >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
           {entry.images.map((img, i) => (
             <div
               key={i}
@@ -124,8 +122,19 @@ export const NonCriticalEntryItem: React.FC<Props> = ({ entry, onUpdate, onRemov
         </div>
       )}
 
-      {/* Przycisk dodawania uwag */}
-    
+      <button
+        onClick={handleAddNote}
+        style={{
+          marginTop: 8,
+          padding: "6px 12px",
+          borderRadius: 6,
+          border: "1px solid #ccc",
+          backgroundColor: "#f0f0f0",
+          cursor: "pointer",
+        }}
+      >
+        Dodaj uwagi
+      </button>
     </li>
   );
 };

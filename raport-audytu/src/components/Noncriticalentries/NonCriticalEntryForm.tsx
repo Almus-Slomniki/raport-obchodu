@@ -256,13 +256,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
 
       {/* ----------------- LINIA + ZDJĘCIA + DODAJ ----------------- */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-        <select value={line} onChange={e => setLine(e.target.value)} style={{ padding: 8, width: 120 }}>
-          {categories.map(c => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+      
 
         <label
           style={{

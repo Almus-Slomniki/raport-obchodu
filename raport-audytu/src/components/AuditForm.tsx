@@ -321,9 +321,9 @@ export const AuditForm: React.FC = () => {
         />
       )}
 
-      {activeTab === "Niekrytyczne" && (
-        <NonCriticalEntries auditId={auditId} />
-      )}
+     {activeTab === "Niekrytyczne" && auditId && (
+  <NonCriticalEntries auditId={auditId} activeCategory={activeCategory} />
+)}
     </div>
   );
 };

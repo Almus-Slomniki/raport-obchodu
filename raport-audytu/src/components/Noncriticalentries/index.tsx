@@ -1,14 +1,16 @@
 // NonCriticalEntries.tsx
 import React, { useEffect, useState } from "react";
-import { categories } from "../../data/questions";
 import { NonCriticalEntry } from "../types";
-import { loadNonCriticalEntries, saveNonCriticalEntry, uploadNonCriticalImage } from "../../supabaseAudit";
+import { loadNonCriticalEntries } from "../../supabaseAudit";
 import { NonCriticalEntryForm } from "./NonCriticalEntryForm";
 import { NonCriticalEntryItem } from "./NonCriticalEntryItem";
 
-type Props = { auditId: number };
+type Props = { 
+  auditId: number;
+  activeCategory: string; // <- dodajemy activeCategory
+};
 
-export const NonCriticalEntries: React.FC<Props> = ({ auditId }) => {
+export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory }) => {
   const [entries, setEntries] = useState<NonCriticalEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -22,8 +24,10 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId }) => {
     load();
   }, [auditId]);
 
+  // Nowy wpis automatycznie z activeCategory
   const addEntry = (entry: NonCriticalEntry) => {
-    setEntries(prev => [...prev, entry]);
+    const newEntry = { ...entry, line: activeCategory };
+    setEntries(prev => [...prev, newEntry]);
   };
 
   const updateEntry = (updated: NonCriticalEntry) => {
