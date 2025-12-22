@@ -1,7 +1,6 @@
 // AuditForm.tsx
 import React, { useEffect, useState } from "react";
 import { categories, initialQuestions, Question } from "../data/questions";
-import { QuestionItem } from "./QuestionItem";
 import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
 import { loadAuditData, saveAnswer, uploadImage } from "../supabaseAudit";
 import { AuditActions } from "./AuditActions";
@@ -9,11 +8,16 @@ import { supabase } from "../supabaseClient";
 import { AdminPanel } from "./AdminPanel";
 import { NonCriticalEntries } from "./Noncriticalentries";
 
+import { AuditLoader } from "./AuditLoader";
+import { AuditTabs } from "./AuditTabs";
+import { CategorySelector } from "./CategorySelector";
+import { CriticalQuestions } from "./CriticalQuestions";
+
 export const AuditForm: React.FC = () => {
   const [auditId, setAuditId] = useState<number | null>(null);
   const [auditInput, setAuditInput] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">("Krytyczne");
-  const [activeTabCategory, setActiveTabCategory] = useState<string>(categories[0]);
+  const [activeCategory, setActiveCategory] = useState<string>(categories[0]);
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
   const [auditDate, setAuditDate] = useState<string | null>(null);
@@ -24,7 +28,7 @@ export const AuditForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [nonCriticalEntries, setNonCriticalEntries] = useState<NonCriticalEntry[]>([]);
 
-  // ---- Wczytaj zakończone audyty
+  // ---- useEffect: zakończone audyty
   useEffect(() => {
     const loadFinished = async () => {
       const { data } = await supabase
@@ -40,7 +44,7 @@ export const AuditForm: React.FC = () => {
     loadFinished();
   }, []);
 
-  // ---- Wczytaj ostatni niezakończony audyt, audytora i lidera
+  // ---- useEffect: ostatni niezakończony audyt
   useEffect(() => {
     const lastAudit = localStorage.getItem("lastUnfinishedAudit");
     const lastAuditor = localStorage.getItem("lastAuditorName");
@@ -49,11 +53,9 @@ export const AuditForm: React.FC = () => {
 
     const restoreAudit = async () => {
       if (!lastAudit) return;
-
       const id = parseInt(lastAudit);
       if (isNaN(id)) return;
 
-      // Sprawdź czy audyt istnieje w bazie
       const { data: existing } = await supabase
         .from("audit_answers")
         .select("*")
@@ -65,9 +67,8 @@ export const AuditForm: React.FC = () => {
         setAuditId(id);
         if (lastAuditor) setAuditorName(lastAuditor);
         if (lastLeader) setLeaderName(lastLeader);
-        if (lastCategory && categories.includes(lastCategory)) setActiveTabCategory(lastCategory);
+        if (lastCategory && categories.includes(lastCategory)) setActiveCategory(lastCategory);
       } else {
-        // usuń nieaktualny audyt z localStorage
         localStorage.removeItem("lastUnfinishedAudit");
         localStorage.removeItem("lastAuditorName");
         localStorage.removeItem("lastLeaderName");
@@ -77,12 +78,11 @@ export const AuditForm: React.FC = () => {
     restoreAudit();
   }, []);
 
-  // ---- Zapis audytora do localStorage przy zmianie
+  // ---- Zapis audytora i lidera
   useEffect(() => {
     if (auditorName.trim()) localStorage.setItem("lastAuditorName", auditorName.trim());
   }, [auditorName]);
 
-  // ---- Zapis lidera do localStorage przy zmianie
   useEffect(() => {
     if (leaderName.trim()) localStorage.setItem("lastLeaderName", leaderName.trim());
   }, [leaderName]);
@@ -94,8 +94,6 @@ export const AuditForm: React.FC = () => {
 
     const load = async () => {
       setLoading(true);
-
-      // 1️⃣ Pobranie pytań i obrazków
       const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
       const fullQuestions: QuestionsState = {};
       const fullImages: ImagesState = {};
@@ -104,13 +102,7 @@ export const AuditForm: React.FC = () => {
         fullQuestions[cat] = initialQuestions.map((q, i) => {
           const qid = (i + 1).toString();
           const loaded = loadedQuestions[cat]?.find((lq: Question) => lq.id === qid);
-          return {
-            ...q,
-            id: qid,
-            answer: loaded?.answer ?? undefined,
-            note: loaded?.note ?? "",
-            images: loaded?.images ?? [],
-          };
+          return { ...q, id: qid, answer: loaded?.answer, note: loaded?.note ?? "", images: loaded?.images ?? [] };
         });
         fullImages[cat] = loadedImages[cat] || {};
       });
@@ -118,7 +110,6 @@ export const AuditForm: React.FC = () => {
       setQuestions(fullQuestions);
       setImagesState(fullImages);
 
-      // 2️⃣ Pobranie audytora
       const { data: auditorData } = await supabase
         .from("audit_answers")
         .select("auditor_name, leader_name")
@@ -129,7 +120,6 @@ export const AuditForm: React.FC = () => {
       if (auditorData?.auditor_name) setAuditorName(auditorData.auditor_name);
       if (auditorData?.leader_name) setLeaderName(auditorData.leader_name);
 
-      // 3️⃣ Sprawdzenie czy audyt zakończony
       const { data: finishData } = await supabase
         .from("audit_answers")
         .select("is_finished")
@@ -139,7 +129,6 @@ export const AuditForm: React.FC = () => {
 
       setIsFinished(finishData?.is_finished ?? false);
 
-      // 4️⃣ Wczytaj wpisy niekrytyczne
       try {
         const { data: entries, error } = await supabase
           .from("non_critical_entries")
@@ -149,8 +138,7 @@ export const AuditForm: React.FC = () => {
 
         if (!error && entries) setNonCriticalEntries(entries as NonCriticalEntry[]);
         else setNonCriticalEntries([]);
-      } catch (err) {
-        console.error("❌ Błąd wczytywania non-critical entries:", err);
+      } catch {
         setNonCriticalEntries([]);
       }
 
@@ -160,7 +148,7 @@ export const AuditForm: React.FC = () => {
     load();
   }, [auditId, auditorName]);
 
-  // ---- Obsługa wpisania numeru audytu
+  // ---- Funkcje obsługi audytu
   const handleAuditSubmit = async () => {
     if (!auditInput || !auditorName.trim()) return;
     const num = parseInt(auditInput);
@@ -182,16 +170,13 @@ export const AuditForm: React.FC = () => {
       .limit(1)
       .single();
 
-    // ---- Nowy audyt
     if (!existing) {
       const nowIso = new Date().toISOString();
       setAuditDate(nowIso);
-
       for (const cat of categories) {
         for (let i = 0; i < initialQuestions.length; i++) {
           const q = initialQuestions[i];
           const qid = (i + 1).toString();
-
           await supabase.from("audit_answers").insert({
             audit_id: num,
             category: cat,
@@ -202,18 +187,16 @@ export const AuditForm: React.FC = () => {
             images: JSON.stringify([]),
             is_finished: false,
             auditor_name: auditorName.trim() || null,
-            leader_name: leaderName.trim() || null, // <-- zapis lidera
+            leader_name: leaderName.trim() || null,
             updated_at: nowIso,
           });
         }
       }
-
       setIsFinished(false);
       setLoading(false);
       return;
     }
 
-    // ---- Istniejący audyt
     if (existing.is_finished) {
       alert("Ten obchód jest zakończony i nie można go edytować.");
       setIsFinished(true);
@@ -222,10 +205,7 @@ export const AuditForm: React.FC = () => {
       if (auditorName.trim() || leaderName.trim()) {
         await supabase
           .from("audit_answers")
-          .update({ 
-            auditor_name: auditorName.trim(), 
-            leader_name: leaderName.trim() // <-- aktualizacja lidera
-          })
+          .update({ auditor_name: auditorName.trim(), leader_name: leaderName.trim() })
           .eq("audit_id", num);
       }
     }
@@ -233,14 +213,13 @@ export const AuditForm: React.FC = () => {
     setLoading(false);
   };
 
-  // ---- Reset audytu
   const handleAuditReset = () => {
     setAuditId(null);
     setQuestions({});
     setImagesState({});
     setAuditInput("");
     setActiveTab("Krytyczne");
-    setActiveTabCategory(categories[0]);
+    setActiveCategory(categories[0]);
     setAuditDate(null);
     setIsFinished(false);
     setAuditorName("");
@@ -252,7 +231,6 @@ export const AuditForm: React.FC = () => {
     localStorage.removeItem("lastLeaderName");
   };
 
-  // ---- Aktualizacja odpowiedzi
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
     if (isFinished) return;
     setQuestions(prev => {
@@ -296,114 +274,22 @@ export const AuditForm: React.FC = () => {
     return <AdminPanel auditId={auditId} auditorName={auditorName} />;
   }
 
-  // ---- Ekran wczytania audytu
+  // ---- Loader audytu
   if (auditId === null) {
     return (
-      <div style={{
-        padding: 20,
-        maxWidth: 400,
-        margin: "50px auto",
-        textAlign: "center",
-        backgroundColor: "#f9f9f9",
-        borderRadius: 12,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-      }}>
-        <h2 style={{ marginBottom: 20 }}>Wpisz numer obchodu</h2>
-
-        <input
-          type="text"
-          value={auditorName}
-          onChange={e => setAuditorName(e.target.value)}
-          placeholder="Imię i nazwisko audytora"
-          style={{
-            padding: 12,
-            fontSize: 16,
-            width: "100%",
-            marginBottom: 15,
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            boxSizing: "border-box"
-          }}
-        />
-
-        <input
-          type="text"
-          value={leaderName}
-          onChange={e => setLeaderName(e.target.value)}
-          placeholder="Imię i nazwisko Lidera"
-          style={{
-            padding: 12,
-            fontSize: 16,
-            width: "100%",
-            marginBottom: 15,
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            boxSizing: "border-box"
-          }}
-        />
-
-        <input
-          type="number"
-          value={auditInput}
-          onChange={e => setAuditInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") handleAuditSubmit(); }}
-          placeholder="Numer obchodu"
-          style={{
-            padding: 12,
-            fontSize: 16,
-            width: "100%",
-            marginBottom: 20,
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            boxSizing: "border-box"
-          }}
-        />
-
-        <button
-          onClick={handleAuditSubmit}
-          style={{
-            padding: "12px 20px",
-            fontSize: 16,
-            backgroundColor: "#1464f4",
-            color: "white",
-            border: "none",
-            borderRadius: 8,
-            width: "100%",
-            marginBottom: 25,
-            cursor: "pointer",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
-          }}
-        >
-          {loading ? "Ładowanie..." : "Wczytaj obchód"}
-        </button>
-
-        <h3 style={{ marginBottom: 10 }}>Zakończone obchody</h3>
-        <select
-          style={{
-            padding: 12,
-            fontSize: 16,
-            width: "100%",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            boxSizing: "border-box"
-          }}
-          onChange={e => {
-            const id = Number(e.target.value);
-            if (id) {
-              setAuditId(id);
-              setIsFinished(true);
-              setAuditDate(null);
-            }
-          }}
-        >
-          <option value="">— wybierz —</option>
-          {finishedAudits.map(id => (
-            <option key={id} value={id}>
-              Obchód {id}
-            </option>
-          ))}
-        </select>
-      </div>
+      <AuditLoader
+        auditInput={auditInput}
+        setAuditInput={setAuditInput}
+        auditorName={auditorName}
+        setAuditorName={setAuditorName}
+        leaderName={leaderName}
+        setLeaderName={setLeaderName}
+        finishedAudits={finishedAudits}
+        handleAuditSubmit={handleAuditSubmit}
+        loading={loading}
+        setAuditId={setAuditId}
+        setIsFinished={setIsFinished}
+      />
     );
   }
 
@@ -423,72 +309,34 @@ export const AuditForm: React.FC = () => {
         questions={questions}
         imagesState={imagesState}
         auditorName={auditorName}
-          leaderName={leaderName}
+        leaderName={leaderName}
       />
 
-      <div style={{ display: "flex", marginBottom: 10 }}>
-        {["Krytyczne", "Niekrytyczne"].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as "Krytyczne" | "Niekrytyczne")}
-            style={{
-              flex: 1,
-              padding: 12,
-              backgroundColor: activeTab === tab ? "#e3f2fd" : "white",
-              border: "1px solid #ccc",
-              fontWeight: activeTab === tab ? "bold" : "normal",
-              cursor: "pointer"
-            }}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      <AuditTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Krytyczne */}
       {activeTab === "Krytyczne" && (
-        <div>
-          <div style={{ display: 'flex', marginBottom: 10 }}>
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => { setActiveTabCategory(cat); localStorage.setItem("lastActiveCategory", cat); }}
-                style={{
-                  flex: 1,
-                  padding: 8,
-                  backgroundColor: activeTabCategory === cat ? '#e3f2fd' : 'white',
-                  border: '1px solid #ccc',
-                  fontWeight: activeTabCategory === cat ? 'bold' : 'normal',
-                  cursor: 'pointer'
-                }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+        <>
+          <CategorySelector
+            categories={categories}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
+          />
 
-          {questions[activeTabCategory]?.map(q => (
-            <QuestionItem
-              key={q.id}
-              q={q}
-              activeTab={activeTabCategory}
-              setAnswer={setAnswerFn}
-              updateNote={updateNoteFn}
-              addImageToQuestion={addImageFn}
-              images={imagesState[activeTabCategory]?.[q.id] || []}
-              auditId={auditId}
-              imagesState={imagesState}
-              setImagesState={setImagesState}
-              questions={questions}
-              setQuestions={setQuestions}
-              saveAnswer={saveAnswer}
-              isFinished={isFinished}
-            />
-          ))}
-        </div>
+          <CriticalQuestions
+            activeCategory={activeCategory}
+            questions={questions}
+            setQuestions={setQuestions}
+            imagesState={imagesState}
+            setImagesState={setImagesState}
+            auditId={auditId}
+            isFinished={isFinished}
+            setAnswerFn={setAnswerFn}
+            updateNoteFn={updateNoteFn}
+            addImageFn={addImageFn}
+          />
+        </>
       )}
 
-      {/* Niekrytyczne */}
       {activeTab === "Niekrytyczne" && auditId && (
         <NonCriticalEntries auditId={auditId} />
       )}
