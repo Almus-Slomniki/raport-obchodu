@@ -2,6 +2,7 @@ import React from 'react';
 import { supabase } from '../supabaseClient';
 import { generatePDF } from "../utils/generatePDF";
 import { exportToExcel } from "../utils/exportToExcel";
+import { generateNonCriticalPDF } from "../utils/generateNonCriticalPDF"; // <-- import nowej funkcji
 
 interface AuditActionsProps {
   auditId: number;
@@ -48,7 +49,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
           is_finished: true,
           finished_at: new Date().toISOString(),
           auditor_name: auditorName?.trim() || null,
-          leader_name: leaderName?.trim() || null, // <-- zapis lidera przy zakończeniu
+          leader_name: leaderName?.trim() || null,
         })
         .eq('audit_id', auditId);
 
@@ -64,6 +65,10 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
       console.error('Błąd zakończenia audytu:', err);
       alert('Błąd zakończenia audytu.');
     }
+  };
+
+  const exportNonCriticalPDF = async () => {
+    await generateNonCriticalPDF(auditId);
   };
 
   return (
@@ -108,40 +113,56 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
         Zakończ obchód
       </button>
 
-      {/* GENERUJ PDF */}
       {isFinished && (
-        <button
-          onClick={() => generatePDF(questions, imagesState, auditorName, leaderName)}
-          style={{
-            padding: '12px 22px',
-            fontSize: 16,
-            backgroundColor: '#1464f4',
-            color: 'white',
-            border: 'none',
-            borderRadius: 8,
-            cursor: 'pointer',
-          }}
-        >
-          Generuj PDF
-        </button>
-      )}
+        <>
+          {/* PDF krytyczne */}
+          <button
+            onClick={() => generatePDF(questions, imagesState, auditorName, leaderName)}
+            style={{
+              padding: '12px 22px',
+              fontSize: 16,
+              backgroundColor: '#1464f4',
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}
+          >
+            Generuj PDF
+          </button>
 
-      {/* EXCEL */}
-      {isFinished && (
-        <button
-          onClick={() => exportToExcel(questions, auditId)}
-          style={{
-            padding: '12px 22px',
-            fontSize: 16,
-            backgroundColor: '#0a7c32',
-            color: 'white',
-            border: 'none',
-            borderRadius: 8,
-            cursor: 'pointer',
-          }}
-        >
-          Eksportuj do Excel
-        </button>
+          {/* PDF niekrytyczne */}
+          <button
+            onClick={exportNonCriticalPDF}
+            style={{
+              padding: '12px 22px',
+              fontSize: 16,
+              backgroundColor: '#ff9800',
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}
+          >
+            PDF niekrytyczne
+          </button>
+
+          {/* EXCEL */}
+          <button
+            onClick={() => exportToExcel(questions, auditId)}
+            style={{
+              padding: '12px 22px',
+              fontSize: 16,
+              backgroundColor: '#0a7c32',
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}
+          >
+            Eksportuj do Excel
+          </button>
+        </>
       )}
     </div>
   );
