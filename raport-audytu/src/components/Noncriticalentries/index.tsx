@@ -23,7 +23,7 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory })
     };
     load();
   }, [auditId]);
-
+console.log("dada", activeCategory)
   // Nowy wpis automatycznie z activeCategory
   const addEntry = (entry: NonCriticalEntry) => {
     const newEntry = { ...entry, line: activeCategory };

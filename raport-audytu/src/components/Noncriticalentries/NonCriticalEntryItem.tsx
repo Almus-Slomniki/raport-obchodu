@@ -10,8 +10,11 @@ type Props = {
 
 export const NonCriticalEntryItem: React.FC<Props> = ({ entry, onUpdate, onRemove }) => {
   const handleAddNote = () => {
-    const note = prompt("Wpisz uwagi:");
-    onUpdate({ ...entry, note: note ?? entry.note });
+    console.log("entr",entry)
+    const note = prompt("Wpisz uwagi:", entry.note || "");
+    if (note !== null) {
+      onUpdate({ ...entry, note });
+    }
   };
 
   const handleRemoveImage = (index: number) => {
@@ -19,7 +22,7 @@ export const NonCriticalEntryItem: React.FC<Props> = ({ entry, onUpdate, onRemov
       onUpdate({ ...entry, images: entry.images?.filter((_, i) => i !== index) });
     }
   };
-
+console.log("entryyy", entry)
   return (
     <li
       style={{
@@ -35,7 +38,7 @@ export const NonCriticalEntryItem: React.FC<Props> = ({ entry, onUpdate, onRemov
         gap: 8,
       }}
     >
-      {/* Czerwony X w prawym górnym rogu */}
+      {/* Usuń wpis */}
       <button
         onClick={() => {
           if (window.confirm("Czy na pewno chcesz usunąć ten wpis?")) {
@@ -62,6 +65,7 @@ export const NonCriticalEntryItem: React.FC<Props> = ({ entry, onUpdate, onRemov
         ×
       </button>
 
+      {/* Nazwa i linia */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <strong style={{ fontSize: 16 }}>{entry.name || "Brak nazwy"}</strong>
         <div style={{ fontSize: 14, color: "#333" }}>
@@ -122,6 +126,7 @@ export const NonCriticalEntryItem: React.FC<Props> = ({ entry, onUpdate, onRemov
         </div>
       )}
 
+      {/* Dodaj uwagi */}
       <button
         onClick={handleAddNote}
         style={{

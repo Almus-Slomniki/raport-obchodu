@@ -43,19 +43,15 @@ export const loadAuditData = async (auditId: number): Promise<{
     images[row.category][row.question_id] = parsedImages;
   });
 
-  const { data: auditMeta, error: auditError } = await supabase
-    .from('audits')
-    .select('created_at')
-    .eq('id', auditId)
-    .single();
-
-  if (auditError) console.error('❌ Błąd pobierania daty audytu:', auditError);
-
-  const auditDate = auditMeta?.created_at ?? null;
+  // Pobieramy datę audytu z najstarszej created_at w audit_answers
+  const auditDate = data.length > 0 ? data.reduce((min: string, row: any) => {
+    return new Date(row.created_at) < new Date(min) ? row.created_at : min;
+  }, data[0].created_at) : null;
 
   console.log("📥 Dane załadowane:", questions, "📅 Data audytu:", auditDate);
   return { questions, images, auditDate };
 };
+
 
 /* -------------------------------------------------------------------------- */
 /*                                SAVE ANSWER                                 */
@@ -157,11 +153,11 @@ export const saveNonCriticalEntry = async (auditId: number, entry: NonCriticalEn
         }
       ])
       .select(); // bardzo ważne, bo bez select Supabase nic nie zwraca
-
     if (error) {
       console.error("❌ Błąd zapisu non-critical:", error);
       return null;
     }
+console.log("entryten", data)
 
     return (data && data[0]) as NonCriticalEntry;
   } catch (err) {

@@ -53,22 +53,29 @@ const checklistData = {
 };
 
 type ChecklistItem = { category: keyof typeof checklistData; text: string };
-
 const allChecklistItems: ChecklistItem[] = (Object.keys(checklistData) as (keyof typeof checklistData)[])
   .flatMap(cat => checklistData[cat].map(text => ({ category: cat, text })));
 
 type Props = { auditId: number; onAdd: (entry: NonCriticalEntry) => void };
 
 export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
-  const [selectedCategory, setSelectedCategory] =
-    useState<keyof typeof checklistData | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<keyof typeof checklistData | null>(null);
   const [selectedItem, setSelectedItem] = useState<ChecklistItem | null>(null);
 
   const [name, setName] = useState("");
-  const [line, setLine] = useState(categories[0]);
+  const [line, setLine] = useState<keyof typeof checklistData | string>(categories[0]);
   const [images, setImages] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<ChecklistItem[]>([]);
 
+  // ----------------- HANDLE CATEGORY SELECT -----------------
+  const handleCategorySelect = (cat: keyof typeof checklistData) => {
+    setSelectedCategory(cat);
+    setLine(cat);          // <-- zapisujemy linię
+    setSelectedItem(null);
+    setName("");
+  };
+
+  // ----------------- HANDLE NAME CHANGE / SUGGESTIONS -----------------
   const handleNameChange = (value: string) => {
     setName(value);
     setSelectedItem(null);
@@ -83,6 +90,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
     }
   };
 
+  // ----------------- ADD IMAGES -----------------
   const addImages = async (files: FileList) => {
     const uploaded: string[] = [];
 
@@ -98,6 +106,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
     setImages(prev => [...prev, ...uploaded]);
   };
 
+  // ----------------- ADD ENTRY -----------------
   const handleAddEntry = async () => {
     if (!name.trim()) return;
 
@@ -122,43 +131,30 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
 
   return (
     <div style={{ marginTop: 20 }}>
+      {/* ----------------- TABS ----------------- */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
+        {(Object.keys(checklistData) as (keyof typeof checklistData)[]).map(cat => (
+          <button
+            key={cat}
+            style={{
+              width: "100%",
+              padding: "10px 0",
+              border: "1px solid #ccc",
+              borderRadius: 6,
+              fontWeight: selectedCategory === cat ? "bold" : "normal",
+              backgroundColor: selectedCategory === cat ? "#e3f2fd" : "white",
+              cursor: "pointer",
+              textAlign: "center",
+              fontSize: 14,
+            }}
+            onClick={() => handleCategorySelect(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
 
-{/* -----------------  TABS (każdy w osobnym wierszu na telefonie) ----------------- */}
-<div
-  style={{
-    display: "flex",
-    flexDirection: "column", // każdy przycisk w wierszu
-    gap: 4, // odstęp między przyciskami
-    marginTop: 10,
-  }}
->
-  {(Object.keys(checklistData) as (keyof typeof checklistData)[]).map(cat => (
-    <button
-      key={cat}
-      style={{
-        width: "100%",
-        padding: "10px 0",
-        border: "1px solid #ccc",
-        borderRadius: 6,
-        fontWeight: selectedCategory === cat ? "bold" : "normal",
-        backgroundColor: selectedCategory === cat ? "#e3f2fd" : "white",
-        cursor: "pointer",
-        textAlign: "center",
-        fontSize: 14,
-      }}
-      onClick={() => {
-        setSelectedCategory(prev => (prev === cat ? null : cat));
-        setSelectedItem(null);
-        setName("");
-      }}
-    >
-      {cat}
-    </button>
-  ))}
-</div>
-
-
-      {/* ----------------- ROZWIJANA LISTA POD TABAMI ----------------- */}
+      {/* ----------------- DROPDOWN / LIST ----------------- */}
       {selectedCategory && (
         <ul
           style={{
@@ -189,7 +185,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
                 onClick={() => {
                   setName(text);
                   setSelectedItem({ category: selectedCategory, text });
-                  setSelectedCategory(null); // zamyka listę
+                  setSelectedCategory(null);
                 }}
               >
                 {text}
@@ -199,7 +195,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
         </ul>
       )}
 
-      {/* ----------------- INPUT + SUGESTIE ----------------- */}
+      {/* ----------------- INPUT + SUGGESTIONS ----------------- */}
       <div style={{ position: "relative", marginTop: 10 }}>
         <input
           type="text"
@@ -244,6 +240,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
                     setSelectedItem(s);
                     setSuggestions([]);
                     setSelectedCategory(null);
+                    setLine(s.category); // <-- synchronizujemy linię z wyborem sugestii
                   }}
                 >
                   {s.text} ({s.category})
@@ -254,10 +251,8 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
         )}
       </div>
 
-      {/* ----------------- LINIA + ZDJĘCIA + DODAJ ----------------- */}
+      {/* ----------------- IMAGES + ADD ----------------- */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-      
-
         <label
           style={{
             cursor: "pointer",
