@@ -1,10 +1,9 @@
 // NonCriticalEntryForm.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { categories } from "../../data/questions";
 import { NonCriticalEntry } from "../types";
 import { saveNonCriticalEntry, uploadNonCriticalImage } from "../../supabaseAudit";
 
-// Checklist
 const checklistData = {
   "Czystość i porządek": [
     "Miotły i inne środki czystości - nieużywane wiszą w kącikach",
@@ -56,26 +55,29 @@ type ChecklistItem = { category: keyof typeof checklistData; text: string };
 const allChecklistItems: ChecklistItem[] = (Object.keys(checklistData) as (keyof typeof checklistData)[])
   .flatMap(cat => checklistData[cat].map(text => ({ category: cat, text })));
 
-type Props = { auditId: number; onAdd: (entry: NonCriticalEntry) => void };
+type Props = { auditId: number; activeCategory: string; onAdd: (entry: NonCriticalEntry) => void };
 
-export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
+export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, activeCategory, onAdd }) => {
   const [selectedCategory, setSelectedCategory] = useState<keyof typeof checklistData | null>(null);
   const [selectedItem, setSelectedItem] = useState<ChecklistItem | null>(null);
 
   const [name, setName] = useState("");
-  const [line, setLine] = useState<keyof typeof checklistData | string>(categories[0]);
+  const [line, setLine] = useState<string>(activeCategory); // start z activeCategory
   const [images, setImages] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<ChecklistItem[]>([]);
 
-  // ----------------- HANDLE CATEGORY SELECT -----------------
+  // Synchronizacja z aktywną kategorią z rodzica
+  useEffect(() => {
+    setLine(activeCategory);
+  }, [activeCategory]);
+
   const handleCategorySelect = (cat: keyof typeof checklistData) => {
     setSelectedCategory(cat);
-    setLine(cat);          // <-- zapisujemy linię
+    setLine(cat);
     setSelectedItem(null);
     setName("");
   };
 
-  // ----------------- HANDLE NAME CHANGE / SUGGESTIONS -----------------
   const handleNameChange = (value: string) => {
     setName(value);
     setSelectedItem(null);
@@ -90,10 +92,8 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
     }
   };
 
-  // ----------------- ADD IMAGES -----------------
   const addImages = async (files: FileList) => {
     const uploaded: string[] = [];
-
     for (let i = 0; i < files.length; i++) {
       try {
         const url = await uploadNonCriticalImage(auditId, files[i]);
@@ -102,36 +102,29 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
         console.error(err);
       }
     }
-
     setImages(prev => [...prev, ...uploaded]);
   };
 
-  // ----------------- ADD ENTRY -----------------
-  const handleAddEntry = async () => {
-    if (!name.trim()) return;
+const handleAddEntry = async () => {
+  if (!name.trim()) return;
 
-    const entry: NonCriticalEntry = {
-      name: name.trim(),
-      line,
-      images,
-      note: ""
-    };
+  const entry: NonCriticalEntry = { name: name.trim(), line, images, note: "" };
+  
+  onAdd(entry); // tylko przekazujemy dane do rodzica
 
-    const saved = await saveNonCriticalEntry(auditId, entry);
-    if (saved) {
-      onAdd(saved);
-      setName("");
-      setLine(categories[0]);
-      setImages([]);
-      setSelectedItem(null);
-      setSelectedCategory(null);
-      setSuggestions([]);
-    }
-  };
+  // reset pól
+  setName("");
+  setLine(activeCategory);
+  setImages([]);
+  setSelectedItem(null);
+  setSelectedCategory(null);
+  setSuggestions([]);
+};
+
 
   return (
     <div style={{ marginTop: 20 }}>
-      {/* ----------------- TABS ----------------- */}
+      {/* TABS */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         {(Object.keys(checklistData) as (keyof typeof checklistData)[]).map(cat => (
           <button
@@ -154,7 +147,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
         ))}
       </div>
 
-      {/* ----------------- DROPDOWN / LIST ----------------- */}
+      {/* DROPDOWN / LIST */}
       {selectedCategory && (
         <ul
           style={{
@@ -168,7 +161,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
             background: "white"
           }}
         >
-          {checklistData[selectedCategory].map((text: string, idx: number) => (
+          {checklistData[selectedCategory].map((text, idx) => (
             <li key={idx}>
               <button
                 type="button"
@@ -186,6 +179,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
                   setName(text);
                   setSelectedItem({ category: selectedCategory, text });
                   setSelectedCategory(null);
+                  setLine(selectedCategory);
                 }}
               >
                 {text}
@@ -195,7 +189,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
         </ul>
       )}
 
-      {/* ----------------- INPUT + SUGGESTIONS ----------------- */}
+      {/* INPUT + SUGGESTIONS */}
       <div style={{ position: "relative", marginTop: 10 }}>
         <input
           type="text"
@@ -204,7 +198,6 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
           onChange={e => handleNameChange(e.target.value)}
           style={{ width: "100%", padding: 8 }}
         />
-
         {suggestions.length > 0 && (
           <ul
             style={{
@@ -240,7 +233,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
                     setSelectedItem(s);
                     setSuggestions([]);
                     setSelectedCategory(null);
-                    setLine(s.category); // <-- synchronizujemy linię z wyborem sugestii
+                    setLine(s.category);
                   }}
                 >
                   {s.text} ({s.category})
@@ -251,7 +244,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
         )}
       </div>
 
-      {/* ----------------- IMAGES + ADD ----------------- */}
+      {/* IMAGES + ADD */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
         <label
           style={{
@@ -276,9 +269,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({ auditId, onAdd }) => {
             style={{ display: "none" }}
           />
         </label>
-
         <span>{images.length > 0 ? `Dodano ${images.length}` : ""}</span>
-
         <button
           onClick={handleAddEntry}
           style={{

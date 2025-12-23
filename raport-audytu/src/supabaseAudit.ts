@@ -11,8 +11,6 @@ export const loadAuditData = async (auditId: number): Promise<{
   images: ImagesState;
   auditDate: string | null;
 }> => {
-  console.log("🔄 Pobieram dane audytu:", auditId);
-
   const { data, error } = await supabase
     .from('audit_answers')
     .select('*')
@@ -43,15 +41,14 @@ export const loadAuditData = async (auditId: number): Promise<{
     images[row.category][row.question_id] = parsedImages;
   });
 
-  // Pobieramy datę audytu z najstarszej created_at w audit_answers
-  const auditDate = data.length > 0 ? data.reduce((min: string, row: any) => {
-    return new Date(row.created_at) < new Date(min) ? row.created_at : min;
-  }, data[0].created_at) : null;
+  const auditDate = data.length > 0
+    ? data.reduce((min: string, row: any) =>
+        new Date(row.created_at) < new Date(min) ? row.created_at : min,
+      data[0].created_at)
+    : null;
 
-  console.log("📥 Dane załadowane:", questions, "📅 Data audytu:", auditDate);
   return { questions, images, auditDate };
 };
-
 
 /* -------------------------------------------------------------------------- */
 /*                                SAVE ANSWER                                 */
@@ -59,9 +56,7 @@ export const loadAuditData = async (auditId: number): Promise<{
 export const saveAnswer = async (auditId: number, category: string, question: Question) => {
   try {
     const imagesString = JSON.stringify(question.images || []);
-    const safeAnswer: boolean | null = question.answer === true || question.answer === false ? question.answer : null;
-
-    console.log('💾 Zapisuję odpowiedź:', { audit_id: auditId, category, question_id: Number(question.id), question_text: question.text, answer: safeAnswer, note: question.note, images: question.images });
+    const safeAnswer = question.answer === true || question.answer === false ? question.answer : null;
 
     const { error } = await supabase
       .from('audit_answers')
@@ -76,13 +71,12 @@ export const saveAnswer = async (auditId: number, category: string, question: Qu
           images: imagesString,
           updated_at: new Date(),
         },
-        { onConflict: 'audit_id,category,question_id' } // Supabase wymaga dokładnie takiego formatu
+        { onConflict: 'audit_id,category,question_id' }
       );
 
     if (error) console.error('❌ Błąd zapisu w Supabase:', error);
-    else console.log('✅ Odpowiedź zapisana');
   } catch (err) {
-    console.error('❌ Błąd zapisu odpowiedzi:', err);
+    console.error('❌ saveAnswer error:', err);
   }
 };
 
@@ -91,11 +85,11 @@ export const saveAnswer = async (auditId: number, category: string, question: Qu
 /* -------------------------------------------------------------------------- */
 export const uploadImage = async (auditId: number, category: string, questionId: string, file: File): Promise<string> => {
   const path = `audits/${auditId}/${category}/${questionId}/${Date.now()}-${file.name}`;
-  const { error: uploadError } = await supabase.storage.from('audit-images').upload(path, file);
-  if (uploadError) throw new Error(uploadError.message);
+  const { error } = await supabase.storage.from('audit-images').upload(path, file);
+  if (error) throw new Error(error.message);
 
-  const { data: urlData } = await supabase.storage.from('audit-images').getPublicUrl(path);
-  return urlData?.publicUrl ?? '';
+  const { data } = supabase.storage.from('audit-images').getPublicUrl(path);
+  return data?.publicUrl ?? '';
 };
 
 /* -------------------------------------------------------------------------- */
@@ -103,10 +97,7 @@ export const uploadImage = async (auditId: number, category: string, questionId:
 /* -------------------------------------------------------------------------- */
 export const checkAuditFinished = async (auditId: number): Promise<boolean> => {
   const { data, error } = await supabase.from('audits').select('is_finished').eq('id', auditId).single();
-  if (error || !data) {
-    console.error('❌ checkAuditFinished error:', error);
-    return false;
-  }
+  if (error || !data) return false;
   return data.is_finished === true;
 };
 
@@ -114,11 +105,17 @@ export const checkAuditFinished = async (auditId: number): Promise<boolean> => {
 /*                      FETCH LIST OF FINISHED AUDITS                         */
 /* -------------------------------------------------------------------------- */
 export const fetchFinishedAudits = async (): Promise<{ id: number; date: string }[]> => {
-  const { data, error } = await supabase.from('audits').select('id, created_at').eq('is_finished', true).order('id', { ascending: false });
+  const { data, error } = await supabase
+    .from('audits')
+    .select('id, created_at')
+    .eq('is_finished', true)
+    .order('id', { ascending: false });
+
   if (error) {
     console.error('❌ Błąd pobierania zakończonych audytów:', error);
     return [];
   }
+
   return data.map((a: any) => ({ id: a.id, date: new Date(a.created_at).toLocaleString() }));
 };
 
@@ -133,11 +130,11 @@ export const loadNonCriticalEntries = async (auditId: number): Promise<NonCritic
     .order("id", { ascending: true });
 
   if (error) {
-    console.error("❌ Błąd pobierania non-critical:", error);
+    console.error("❌ loadNonCriticalEntries:", error);
     return [];
   }
 
-  return (data || []) as NonCriticalEntry[];
+  return data as NonCriticalEntry[];
 };
 
 export const saveNonCriticalEntry = async (auditId: number, entry: NonCriticalEntry): Promise<NonCriticalEntry | null> => {
@@ -149,15 +146,16 @@ export const saveNonCriticalEntry = async (auditId: number, entry: NonCriticalEn
           audit_id: auditId,
           name: entry.name,
           line: entry.line,
-          images: entry.images || []
+          images: entry.images || [],
+          note: entry.note ?? null
         }
       ])
-      .select(); // bardzo ważne, bo bez select Supabase nic nie zwraca
+      .select();
+
     if (error) {
-      console.error("❌ Błąd zapisu non-critical:", error);
+      console.error("❌ saveNonCriticalEntry:", error);
       return null;
     }
-console.log("entryten", data)
 
     return (data && data[0]) as NonCriticalEntry;
   } catch (err) {
@@ -166,14 +164,46 @@ console.log("entryten", data)
   }
 };
 
+export const updateNonCriticalEntry = async (id: number, data: Partial<NonCriticalEntry>): Promise<boolean> => {
+  const { error } = await supabase
+    .from("non_critical_entries")
+    .update({
+      name: data.name,
+      line: data.line,
+      images: data.images,
+      note: data.note
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("❌ updateNonCriticalEntry:", error);
+    return false;
+  }
+
+  return true;
+};
+
+export const deleteNonCriticalEntry = async (id: number): Promise<boolean> => {
+  const { error } = await supabase
+    .from("non_critical_entries")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("❌ deleteNonCriticalEntry:", error);
+    return false;
+  }
+
+  return true;
+};
+
 export const uploadNonCriticalImage = async (auditId: number, file: File): Promise<string> => {
   const path = `niekrytyczne/${auditId}/${Date.now()}-${file.name}`;
-  const { error: uploadError } = await supabase.storage.from("audit-images").upload(path, file);
-  if (uploadError) throw new Error(uploadError.message);
+  const { error } = await supabase.storage.from("audit-images").upload(path, file);
+  if (error) throw new Error(error.message);
 
-  const { data: urlData } = await supabase.storage.from("audit-images").getPublicUrl(path);
-  return urlData?.publicUrl ?? "";
+  const { data } = supabase.storage.from("audit-images").getPublicUrl(path);
+  return data?.publicUrl ?? "";
 };
 
 export { supabase };
-
