@@ -87,7 +87,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
         <div>Numer obchodu: <strong>{auditId}</strong></div>
         <div>Lider: <strong>{leaderName || '-'}</strong></div>
         <div>Audytor: <strong>{auditorName || '-'}</strong></div>
-        <div>Data: <strong>{auditDate ? new Date(auditDate).toLocaleString() : '-'}</strong></div>
+       
       </div>
 
       {/* Akcje */}

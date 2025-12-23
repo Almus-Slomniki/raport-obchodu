@@ -5,7 +5,8 @@ export const generateSummaryTable = (
   doc: jsPDF,
   questions: any,
   auditorName?: string,
-  leaderName?: string
+  leaderName?: string,
+  auditDate?: string // <-- nowy argument
 ) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 4;
@@ -33,6 +34,14 @@ export const generateSummaryTable = (
     doc.setFontSize(12);
     doc.setFont("Roboto", "normal");
     doc.text(`Lider: ${leaderName}`, pageWidth / 2, y, { align: "center" });
+    y += 6;
+  }
+
+  // --- Data zakończenia audytu ---
+  if (auditDate) {
+    doc.setFontSize(12);
+    doc.setFont("Roboto", "normal");
+    doc.text(`Data audytu: ${auditDate}`, pageWidth / 2, y, { align: "center" });
     y += 6;
   }
 
@@ -92,11 +101,9 @@ export const generateSummaryTable = (
     if (wrappedDesc.length > 0) {
       doc.setFontSize(10);
       doc.setTextColor(50, 50, 50);
-
       doc.text(wrappedDesc, startX + 2, y + 7 + wrappedQText.length * 7, {
         maxWidth: firstColWidth - 4
       });
-
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(12);
     }
@@ -105,7 +112,6 @@ export const generateSummaryTable = (
     categories.forEach((cat, ci) => {
       const qData = questions[cat]?.[qi];
       let ansSymbol = "";
-
       if (qData?.answer === true) ansSymbol = "V";
       else if (qData?.answer === false) ansSymbol = "X";
 

@@ -18,14 +18,7 @@ export const generatePDF = async (
 
   // Wstawienie Audytora i Lidera w nagłówku
   const headerY = 10;
-  if (auditorName) {
-    // doc.setFontSize(12);
-    // doc.text(`Audytor: ${auditorName}`, 10, headerY);
-  }
-  if (leaderName) {
-    // doc.setFontSize(12);
-    // doc.text(`Lider: ${leaderName}`, 10, headerY + 6);
-  }
+
 
   // Generujemy tabelę podsumowującą
   const startY = generateSummaryTable(doc, questions, auditorName, leaderName);
