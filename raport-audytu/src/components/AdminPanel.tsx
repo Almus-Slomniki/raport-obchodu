@@ -5,6 +5,8 @@ import { exportAllAuditsToExcel } from "../utils/exportAllAuditsToExcel";
 interface AdminPanelProps {
   auditId: number | null;
   auditorName: string;
+  setAuditId: (id: number | null) => void;
+  setAuditorName: (name: string) => void;
 }
 
 interface FinishedAudit {
@@ -12,7 +14,12 @@ interface FinishedAudit {
   finished_at: string | null;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({
+  auditId,
+  auditorName,
+  setAuditId,
+  setAuditorName,
+}) => {
   const [loading, setLoading] = useState(false);
   const [finishedAudits, setFinishedAudits] = useState<FinishedAudit[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -98,6 +105,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) 
     setFinishedAudits(prev => prev.filter(a => a.audit_id !== audit_id));
   };
 
+  // Jeśli użytkownik nie jest adminem, nie pokazuj panelu
   if (!isAdmin) return null;
 
   return (
@@ -147,6 +155,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ auditId, auditorName }) 
           </li>
         ))}
       </ul>
+
+      {/* Przycisk wyjścia z panelu admina */}
+      <button
+        onClick={() => {
+          setAuditId(null);
+          setAuditorName("");
+        }}
+        style={{
+          padding: "12px 25px",
+          fontSize: 16,
+          backgroundColor: "#555",
+          color: "white",
+          border: "none",
+          borderRadius: 8,
+          cursor: "pointer",
+          marginTop: 20
+        }}
+      >
+        Wyjdź z panelu admina
+      </button>
     </div>
   );
 };

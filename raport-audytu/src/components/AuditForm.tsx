@@ -50,7 +50,7 @@ export const AuditForm: React.FC = () => {
     loadFinished();
   }, []);
 
-  // ---- przywracanie ostatniego audytu
+  // ---- przywracanie ostatniego audytu (pomija admina)
   useEffect(() => {
     const lastAudit = localStorage.getItem("lastUnfinishedAudit");
     const lastAuditor = localStorage.getItem("lastAuditorName");
@@ -61,6 +61,8 @@ export const AuditForm: React.FC = () => {
       if (!lastAudit) return;
       const id = Number(lastAudit);
       if (isNaN(id)) return;
+
+      if (id === 999 && lastAuditor?.toLowerCase() === "admin") return; // nie przywracaj admina
 
       const { data } = await supabase
         .from("audit_answers")
@@ -83,16 +85,22 @@ export const AuditForm: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (auditorName.trim()) {
+    if (auditorName.trim() && !(auditId === 999 && auditorName.toLowerCase() === "admin")) {
       localStorage.setItem("lastAuditorName", auditorName.trim());
     }
-  }, [auditorName]);
+  }, [auditorName, auditId]);
 
   useEffect(() => {
     if (leaderName.trim()) {
       localStorage.setItem("lastLeaderName", leaderName.trim());
     }
   }, [leaderName]);
+
+  useEffect(() => {
+    if (activeCategory) {
+      localStorage.setItem("lastActiveCategory", activeCategory);
+    }
+  }, [activeCategory]);
 
   // ---- ładowanie audytu
   useEffect(() => {
@@ -159,7 +167,11 @@ export const AuditForm: React.FC = () => {
     if (isNaN(id)) return;
 
     setAuditId(id);
-    localStorage.setItem("lastUnfinishedAudit", String(id));
+
+    // nie zapisuj admina do localStorage
+    if (!(id === 999 && auditorName.toLowerCase() === "admin")) {
+      localStorage.setItem("lastUnfinishedAudit", String(id));
+    }
 
     if (id === 999 && auditorName.toLowerCase() === "admin") return;
 
@@ -202,7 +214,10 @@ export const AuditForm: React.FC = () => {
     setAuditorName("");
     setLeaderName("");
     setIsFinished(false);
-    localStorage.clear();
+    localStorage.removeItem("lastUnfinishedAudit");
+    localStorage.removeItem("lastAuditorName");
+    localStorage.removeItem("lastLeaderName");
+    localStorage.removeItem("lastActiveCategory");
   };
 
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
@@ -256,7 +271,14 @@ export const AuditForm: React.FC = () => {
 
   // ---- ADMIN
   if (auditId === 999 && auditorName.toLowerCase() === "admin") {
-    return <AdminPanel auditId={auditId} auditorName={auditorName} />;
+    return (
+      <AdminPanel
+        auditId={auditId}
+        auditorName={auditorName}
+        setAuditId={setAuditId}
+        setAuditorName={setAuditorName}
+      />
+    );
   }
 
   // ---- LOADER
@@ -300,10 +322,7 @@ export const AuditForm: React.FC = () => {
       />
 
       {/* 2️⃣ POTEM ZAKŁADKI */}
-      <AuditTabs
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-      />
+      <AuditTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* 3️⃣ TREŚĆ */}
       {activeTab === "Krytyczne" && (
@@ -321,9 +340,9 @@ export const AuditForm: React.FC = () => {
         />
       )}
 
-     {activeTab === "Niekrytyczne" && auditId && (
-  <NonCriticalEntries auditId={auditId} activeCategory={activeCategory} />
-)}
+      {activeTab === "Niekrytyczne" && auditId && (
+        <NonCriticalEntries auditId={auditId} activeCategory={activeCategory} />
+      )}
     </div>
   );
 };

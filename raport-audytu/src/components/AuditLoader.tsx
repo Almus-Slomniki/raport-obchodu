@@ -37,7 +37,7 @@ export const AuditLoader: React.FC<AuditLoaderProps> = ({
     borderRadius: 12,
     boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
   }}>
-    <h2 style={{ marginBottom: 20 }}>Wpisz numer obchodu</h2>
+    <h2 style={{ marginBottom: 20 }}>Uzupełnij dane obchodu</h2>
 
     <input
       type="text"
