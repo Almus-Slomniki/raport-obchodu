@@ -16,7 +16,7 @@ export interface NonCriticalEntry {
 }
 
 
-export const categories = ["CMG.2", "CMG.3", "LWN", "CMG.5", "CMG.6"];
+export const categories = [ "CMG.6", "CMG.3", "CMG.2", "LWN", "CMG.5",];
 
 export const initialQuestions: Question[] = [
   { id: "1", text: "Zaleganie ścinek pod piłą", images: [], description: "(przykłady niezgodności: widoczne ścinki z dnia poprzedniego (brudne, inny produkt itp.),posadzka zakryta ścinkami, nagromadzone ścinki poza taśmociągiem itp.)" },

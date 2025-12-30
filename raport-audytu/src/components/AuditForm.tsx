@@ -32,6 +32,28 @@ export const AuditForm: React.FC = () => {
   const [nonCriticalEntries, setNonCriticalEntries] =
     useState<NonCriticalEntry[]>([]);
 
+  // ---- przywracanie kategorii i zakładki przy mount
+  useEffect(() => {
+    const lastCategory = localStorage.getItem("lastActiveCategory");
+    const lastTab = localStorage.getItem("lastActiveTab");
+
+    if (lastCategory && categories.includes(lastCategory)) {
+      setActiveCategory(lastCategory);
+    }
+    if (lastTab === "Krytyczne" || lastTab === "Niekrytyczne") {
+      setActiveTab(lastTab);
+    }
+  }, []);
+
+  // ---- zapis kategorii i zakładki przy zmianie
+  useEffect(() => {
+    localStorage.setItem("lastActiveCategory", activeCategory);
+  }, [activeCategory]);
+
+  useEffect(() => {
+    localStorage.setItem("lastActiveTab", activeTab);
+  }, [activeTab]);
+
   // ---- zakończone audyty
   useEffect(() => {
     const loadFinished = async () => {
@@ -55,14 +77,13 @@ export const AuditForm: React.FC = () => {
     const lastAudit = localStorage.getItem("lastUnfinishedAudit");
     const lastAuditor = localStorage.getItem("lastAuditorName");
     const lastLeader = localStorage.getItem("lastLeaderName");
-    const lastCategory = localStorage.getItem("lastActiveCategory");
 
     const restore = async () => {
       if (!lastAudit) return;
       const id = Number(lastAudit);
       if (isNaN(id)) return;
 
-      if (id === 999 && lastAuditor?.toLowerCase() === "admin") return; // nie przywracaj admina
+      if (id === 999 && lastAuditor?.toLowerCase() === "admin") return;
 
       const { data } = await supabase
         .from("audit_answers")
@@ -75,9 +96,6 @@ export const AuditForm: React.FC = () => {
         setAuditId(id);
         if (lastAuditor) setAuditorName(lastAuditor);
         if (lastLeader) setLeaderName(lastLeader);
-        if (lastCategory && categories.includes(lastCategory)) {
-          setActiveCategory(lastCategory);
-        }
       }
     };
 
@@ -85,7 +103,10 @@ export const AuditForm: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (auditorName.trim() && !(auditId === 999 && auditorName.toLowerCase() === "admin")) {
+    if (
+      auditorName.trim() &&
+      !(auditId === 999 && auditorName.toLowerCase() === "admin")
+    ) {
       localStorage.setItem("lastAuditorName", auditorName.trim());
     }
   }, [auditorName, auditId]);
@@ -95,12 +116,6 @@ export const AuditForm: React.FC = () => {
       localStorage.setItem("lastLeaderName", leaderName.trim());
     }
   }, [leaderName]);
-
-  useEffect(() => {
-    if (activeCategory) {
-      localStorage.setItem("lastActiveCategory", activeCategory);
-    }
-  }, [activeCategory]);
 
   // ---- ładowanie audytu
   useEffect(() => {
@@ -168,7 +183,6 @@ export const AuditForm: React.FC = () => {
 
     setAuditId(id);
 
-    // nie zapisuj admina do localStorage
     if (!(id === 999 && auditorName.toLowerCase() === "admin")) {
       localStorage.setItem("lastUnfinishedAudit", String(id));
     }
@@ -218,9 +232,14 @@ export const AuditForm: React.FC = () => {
     localStorage.removeItem("lastAuditorName");
     localStorage.removeItem("lastLeaderName");
     localStorage.removeItem("lastActiveCategory");
+    localStorage.removeItem("lastActiveTab");
   };
 
-  const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
+  const setAnswerFn = (
+    cat: string,
+    id: string,
+    value: boolean | undefined
+  ) => {
     if (isFinished || auditId === null) return;
     setQuestions(prev => {
       const updated = prev[cat].map(q =>
@@ -269,6 +288,14 @@ export const AuditForm: React.FC = () => {
     });
   };
 
+  // ---- ✔ KOMPLETNOŚĆ KATEGORII — ZAWSZE BOOLEAN
+const isCategoryComplete = (cat: string): boolean => {
+  const list = questions[cat];
+  if (!list || list.length === 0) return false;
+
+  return list.every(q => q.answer === true || q.answer === false);
+};
+
   // ---- ADMIN
   if (auditId === 999 && auditorName.toLowerCase() === "admin") {
     return (
@@ -314,17 +341,15 @@ export const AuditForm: React.FC = () => {
         leaderName={leaderName}
       />
 
-      {/* 1️⃣ NAJPIERW KATEGORIA */}
       <CategorySelector
         categories={categories}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
+        isCategoryComplete={isCategoryComplete}
       />
 
-      {/* 2️⃣ POTEM ZAKŁADKI */}
       <AuditTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* 3️⃣ TREŚĆ */}
       {activeTab === "Krytyczne" && (
         <CriticalQuestions
           activeCategory={activeCategory}
@@ -341,7 +366,10 @@ export const AuditForm: React.FC = () => {
       )}
 
       {activeTab === "Niekrytyczne" && auditId && (
-        <NonCriticalEntries auditId={auditId} activeCategory={activeCategory} />
+        <NonCriticalEntries
+          auditId={auditId}
+          activeCategory={activeCategory}
+        />
       )}
     </div>
   );
