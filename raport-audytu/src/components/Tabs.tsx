@@ -18,7 +18,7 @@ export const Tabs: React.FC<TabsProps> = ({ activeTab, setActiveTab, tabs }) => 
             padding: '12px 0',
             fontSize: 16,
             fontWeight: activeTab === tab ? 'bold' : 'normal',
-            backgroundColor: activeTab === tab ? '#e3f2fd' : '#f5f5f5',
+            backgroundColor: activeTab === tab ? '#3da2eb' : '#f5f5f5',
             border: '1px solid #ccc',
             borderBottom: activeTab === tab ? '2px solid #1464f4' : '1px solid #ccc',
             cursor: 'pointer',

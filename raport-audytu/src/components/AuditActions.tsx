@@ -145,7 +145,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
                 cursor: 'pointer',
               }}
             >
-              Generuj PDF
+              Generuj krytyczne
             </button>
 
             {/* PDF niekrytyczne */}

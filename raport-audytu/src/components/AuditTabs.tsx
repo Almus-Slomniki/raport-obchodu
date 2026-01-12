@@ -15,7 +15,7 @@ export const AuditTabs: React.FC<AuditTabsProps> = ({ activeTab, setActiveTab })
         style={{
           flex: 1,
           padding: 12,
-          backgroundColor: activeTab === tab ? "#e3f2fd" : "white",
+          backgroundColor: activeTab === tab ? "#3da2eb" : "white",
           border: "1px solid #ccc",
           fontWeight: activeTab === tab ? "bold" : "normal",
           cursor: "pointer"

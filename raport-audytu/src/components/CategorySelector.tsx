@@ -28,7 +28,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
             backgroundColor: complete
               ? '#C8FFC8'              // zielone gdy wszystkie odpowiedzi są
               : active
-              ? '#e3f2fd'             // kolor aktywnej kategorii
+              ? '#3da2eb'             // kolor aktywnej kategorii
               : 'white',
             border: '1px solid #ccc',
             fontWeight: active ? 'bold' : 'normal',

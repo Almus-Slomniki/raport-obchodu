@@ -64,8 +64,8 @@ export const generateNonCriticalPDF = async (auditId: number) => {
       doc.setTextColor(0, 0, 0);
 
       for (const entry of grouped[line]) {
-        const noteText = entry.note ? entry.note : "-";
-        const entryText = `• ${entry.name}: ${noteText}`;
+        const noteText = entry.note ? entry.note : "";
+        const entryText = `• ${entry.name} ${noteText}`;
         const splitText = doc.splitTextToSize(entryText, pageWidth - marginX * 2);
 
         // drukowanie każdej linii osobno

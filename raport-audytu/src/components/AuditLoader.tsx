@@ -121,7 +121,7 @@ export const AuditLoader: React.FC<AuditLoaderProps> = ({
         onClick={handleAuditSubmit}
         style={{ padding: "12px 20px", fontSize: 16, backgroundColor: "#1464f4", color: "white", border: "none", borderRadius: 8, width: "100%", marginBottom: 25, cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}
       >
-        {loading ? "Ładowanie..." : "Wczytaj obchód"}
+        {loading ? "Ładowanie..." : "Rozpocznij obchód"}
       </button>
 
       <h3 style={{ marginBottom: 10 }}>Zakończone obchody</h3>
