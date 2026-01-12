@@ -32,80 +32,104 @@ export const generateNonCriticalPDF = async (auditId: number) => {
 
     let y = marginY;
 
-    // Nagłówek PDF
+    // NAGŁÓWEK PDF
     doc.setFont("Roboto", "bold");
     doc.setFontSize(18);
     doc.setTextColor(0, 0, 128);
-    doc.text(`Raport niekrytycznych uwag - Obchód ${auditId}`, marginX, y);
+    doc.text(
+      `Raport niekrytycznych uwag - Obchód ${auditId}`,
+      marginX,
+      y
+    );
     y += lineHeight * 3;
 
-    // Grupowanie po linii
+    // GRUPOWANIE PO LINII
     const grouped: Record<string, typeof entries> = {};
     entries.forEach(entry => {
-      const line = entry.line || "Brak kategorii";
+      const line = entry.line || "Brak linii";
       if (!grouped[line]) grouped[line] = [];
       grouped[line].push(entry);
     });
 
     for (const line of Object.keys(grouped)) {
-      // Nagłówek linii
-      if (y + lineHeight * 2 > pageHeight - marginY) {
+      // NAGŁÓWEK LINII
+      if (y + lineHeight * 3 > pageHeight - marginY) {
         doc.addPage();
         y = marginY;
       }
+
       doc.setFont("Roboto", "bold");
       doc.setFontSize(14);
-      doc.setTextColor(30, 144, 255); // niebieski
+      doc.setTextColor(30, 144, 255);
       doc.text(`Linia: ${line}`, marginX, y);
-      y += lineHeight + 2;
+      y += lineHeight + 1;
+
+      // PODNAGŁÓWEK: TYP UWAGI
+      doc.setFont("Roboto", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Typ uwagi:", marginX + 5, y);
+      y += lineHeight;
 
       doc.setFont("Roboto", "normal");
       doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
 
       for (const entry of grouped[line]) {
-        const noteText = entry.note ? entry.note : "";
-        const entryText = `• ${entry.name} ${noteText}`;
-        const splitText = doc.splitTextToSize(entryText, pageWidth - marginX * 2);
+        const noteText = entry.note ? ` ${entry.note}` : "";
+        const entryText = `• ${entry.name}${noteText}`;
+        const splitText = doc.splitTextToSize(
+          entryText,
+          pageWidth - marginX * 2
+        );
 
-        // drukowanie każdej linii osobno
         for (const lineText of splitText) {
           if (y + lineHeight > pageHeight - marginY) {
             doc.addPage();
             y = marginY;
           }
-          doc.text(lineText, marginX + 5, y);
+          doc.text(lineText, marginX + 10, y);
           y += lineHeight;
         }
-        y += 2; // odstęp po wpisie
 
-        // Miniaturki zdjęć
+        y += 2;
+
+        // ZDJĘCIA
         if (entry.images && entry.images.length > 0) {
-          let x = marginX + 5;
+          let x = marginX + 10;
           let rowHeight = 0;
 
           for (const imgUrl of entry.images) {
             if (y + imgSize > pageHeight - marginY) {
               doc.addPage();
               y = marginY;
-              x = marginX + 5;
+              x = marginX + 10;
             }
 
             try {
               const imgResp = await fetch(imgUrl);
               const blob = await imgResp.blob();
               const reader = new FileReader();
+
               const imgData: string = await new Promise(resolve => {
-                reader.onloadend = () => resolve(reader.result as string);
+                reader.onloadend = () =>
+                  resolve(reader.result as string);
                 reader.readAsDataURL(blob);
               });
 
-              doc.addImage(imgData, 'JPEG', x, y, imgSize, imgSize);
+              doc.addImage(
+                imgData,
+                "JPEG",
+                x,
+                y,
+                imgSize,
+                imgSize
+              );
+
               x += imgSize + imgGap;
               rowHeight = Math.max(rowHeight, imgSize);
 
               if (x + imgSize > pageWidth - marginX) {
-                x = marginX + 5;
+                x = marginX + 10;
                 y += rowHeight + imgGap;
                 rowHeight = 0;
               }
@@ -113,6 +137,7 @@ export const generateNonCriticalPDF = async (auditId: number) => {
               console.error("Błąd ładowania obrazu:", err);
             }
           }
+
           y += rowHeight + 5;
         }
 
