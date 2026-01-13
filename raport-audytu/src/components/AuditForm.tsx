@@ -1,4 +1,3 @@
-// AuditForm.tsx
 import React, { useEffect, useState } from "react";
 import { categories, initialQuestions, Question } from "../data/questions";
 import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
@@ -7,97 +6,82 @@ import { AuditActions } from "./AuditActions";
 import { supabase } from "../supabaseClient";
 import { AdminPanel } from "./AdminPanel";
 import { NonCriticalEntries } from "./Noncriticalentries";
-
 import { AuditLoader } from "./AuditLoader";
 import { AuditTabs } from "./AuditTabs";
 import { CategorySelector } from "./CategorySelector";
 import { CriticalQuestions } from "./CriticalQuestions";
 
 export const AuditForm: React.FC = () => {
-  // --- Stałe listy audytorów i liderów
-  const fixedAuditorsList = ["Justyna Kubuśka", "Dorota Wołczyk", "Karol Wolka"];
-  const fixedLeadersList = ["Ilona Hardyn", "Anna Dobrzanowska", "Agata Kutela", "Piotr Nowak", "Barbara Zelek", "Maria Górowska"];
+  const fixedLeadersList = [
+    "Ilona Hardyn",
+    "Anna Dobrzanowska",
+    "Agata Kutela",
+    "Piotr Nowak",
+    "Barbara Zelek",
+    "Maria Górowska",
+  ];
 
   const [auditId, setAuditId] = useState<number | null>(null);
-  const [auditInput, setAuditInput] = useState("");
   const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">("Krytyczne");
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]);
-
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
   const [isFinished, setIsFinished] = useState(false);
   const [finishedAudits, setFinishedAudits] = useState<number[]>([]);
+  const [unfinishedAudits, setUnfinishedAudits] = useState<number[]>([]);
   const [auditorName, setAuditorName] = useState("");
   const [leaderName, setLeaderName] = useState("");
   const [loading, setLoading] = useState(false);
   const [nonCriticalEntries, setNonCriticalEntries] = useState<NonCriticalEntry[]>([]);
+  const [startingAudit, setStartingAudit] = useState(false);
 
-  // --- Przywracanie ostatniej kategorii i zakładki
+  /* ------------------ Pobranie zalogowanego audytora ------------------ */
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setAuditorName(user.user_metadata.full_name || user.email || "");
+    };
+    fetchUser();
+  }, []);
+
+  /* ------------------ Przywracanie kategorii i zakładki ------------------ */
   useEffect(() => {
     const lastCategory = localStorage.getItem("lastActiveCategory");
     const lastTab = localStorage.getItem("lastActiveTab");
-
     if (lastCategory && categories.includes(lastCategory)) setActiveCategory(lastCategory);
     if (lastTab === "Krytyczne" || lastTab === "Niekrytyczne") setActiveTab(lastTab);
   }, []);
-
   useEffect(() => localStorage.setItem("lastActiveCategory", activeCategory), [activeCategory]);
   useEffect(() => localStorage.setItem("lastActiveTab", activeTab), [activeTab]);
 
-  // --- Załadowanie zakończonych audytów
+  /* ------------------ Załadowanie zakończonych i niedokończonych audytów ------------------ */
   useEffect(() => {
-    const loadFinished = async () => {
-      const { data } = await supabase.from("audit_answers").select("audit_id").eq("is_finished", true);
-      if (data) {
-        const uniq = Array.from(new Set(data.map((x: any) => x.audit_id)));
-        setFinishedAudits(uniq);
-      }
+    const loadAudits = async () => {
+      // zakończone
+      const { data: finishedData } = await supabase
+        .from("audit_answers")
+        .select("audit_id")
+        .eq("is_finished", true);
+      setFinishedAudits(Array.from(new Set(finishedData?.map((x: any) => x.audit_id) || [])));
+
+      // niedokończone
+      const { data: unfinishedData } = await supabase
+        .from("audit_answers")
+        .select("audit_id")
+        .eq("is_finished", false);
+      setUnfinishedAudits(Array.from(new Set(unfinishedData?.map((x: any) => x.audit_id) || [])));
     };
-    loadFinished();
+    loadAudits();
   }, []);
 
-  // --- Przywracanie ostatniego audytu
+  /* ------------------ Ładowanie audytu ------------------ */
   useEffect(() => {
-    const lastAudit = localStorage.getItem("lastUnfinishedAudit");
-    const lastAuditor = localStorage.getItem("lastAuditorName");
-    const lastLeader = localStorage.getItem("lastLeaderName");
-
-    const restore = async () => {
-      if (!lastAudit) return;
-      const id = Number(lastAudit);
-      if (isNaN(id)) return;
-      if (id === 999 && lastAuditor?.toLowerCase() === "admin") return;
-
-      const { data } = await supabase.from("audit_answers").select("*").eq("audit_id", id).limit(1).single();
-
-      if (data && !data.is_finished) {
-        setAuditId(id);
-        if (lastAuditor) setAuditorName(lastAuditor);
-        if (lastLeader) setLeaderName(lastLeader);
-      }
-    };
-    restore();
-  }, []);
-
-  useEffect(() => {
-    if (auditorName.trim() && !(auditId === 999 && auditorName.toLowerCase() === "admin")) {
-      localStorage.setItem("lastAuditorName", auditorName.trim());
-    }
-  }, [auditorName, auditId]);
-
-  useEffect(() => {
-    if (leaderName.trim()) localStorage.setItem("lastLeaderName", leaderName.trim());
-  }, [leaderName]);
-
-  // --- Ładowanie audytu
-  useEffect(() => {
-    if (auditId === null) return;
+    if (!auditId) return;
     if (auditId === 999 && auditorName.toLowerCase() === "admin") return;
 
     const load = async () => {
       setLoading(true);
       const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
-
       const qState: QuestionsState = {};
       const iState: ImagesState = {};
 
@@ -105,7 +89,13 @@ export const AuditForm: React.FC = () => {
         qState[cat] = initialQuestions.map((q, i) => {
           const qid = String(i + 1);
           const loaded = loadedQuestions[cat]?.find((lq: Question) => lq.id === qid);
-          return { ...q, id: qid, answer: loaded?.answer, note: loaded?.note ?? "", images: loaded?.images ?? [] };
+          return {
+            ...q,
+            id: qid,
+            answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
+            note: loaded?.note ?? "",
+            images: loaded?.images ?? [],
+          };
         });
         iState[cat] = loadedImages[cat] || {};
       });
@@ -136,61 +126,11 @@ export const AuditForm: React.FC = () => {
     load();
   }, [auditId, auditorName]);
 
-  // --- Handlery
-  const handleAuditSubmit = async () => {
-    if (!auditInput || !auditorName.trim()) return;
-    const id = Number(auditInput);
-    if (isNaN(id)) return;
-
-    setAuditId(id);
-    if (!(id === 999 && auditorName.toLowerCase() === "admin")) localStorage.setItem("lastUnfinishedAudit", String(id));
-    if (id === 999 && auditorName.toLowerCase() === "admin") return;
-
-    const { data } = await supabase.from("audit_answers").select("*").eq("audit_id", id).limit(1).single();
-
-    if (!data) {
-      const now = new Date().toISOString();
-      for (const cat of categories) {
-        for (let i = 0; i < initialQuestions.length; i++) {
-          await supabase.from("audit_answers").insert({
-            audit_id: id,
-            category: cat,
-            question_id: String(i + 1),
-            question_text: initialQuestions[i].text,
-            answer: null,
-            note: "",
-            images: JSON.stringify([]),
-            is_finished: false,
-            auditor_name: auditorName,
-            leader_name: leaderName,
-            updated_at: now,
-          });
-        }
-      }
-    }
-  };
-
-  const handleAuditReset = () => {
-    setAuditId(null);
-    setQuestions({});
-    setImagesState({});
-    setAuditInput("");
-    setActiveTab("Krytyczne");
-    setActiveCategory(categories[0]);
-    setAuditorName("");
-    setLeaderName("");
-    setIsFinished(false);
-    localStorage.removeItem("lastUnfinishedAudit");
-    localStorage.removeItem("lastAuditorName");
-    localStorage.removeItem("lastLeaderName");
-    localStorage.removeItem("lastActiveCategory");
-    localStorage.removeItem("lastActiveTab");
-  };
-
+  /* ------------------ Handlery pytań ------------------ */
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
-    if (isFinished || auditId === null) return;
+    if (isFinished || !auditId) return;
     setQuestions(prev => {
-      const updated = prev[cat].map(q => q.id === id ? { ...q, answer: value } : q);
+      const updated = prev[cat].map(q => (q.id === id ? { ...q, answer: value } : q));
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
@@ -198,9 +138,9 @@ export const AuditForm: React.FC = () => {
   };
 
   const updateNoteFn = (cat: string, id: string, note: string) => {
-    if (isFinished || auditId === null) return;
+    if (isFinished || !auditId) return;
     setQuestions(prev => {
-      const updated = prev[cat].map(q => q.id === id ? { ...q, note } : q);
+      const updated = prev[cat].map(q => (q.id === id ? { ...q, note } : q));
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
@@ -208,57 +148,119 @@ export const AuditForm: React.FC = () => {
   };
 
   const addImageFn = async (cat: string, id: string, files: FileList) => {
-    if (auditId === null || isFinished) return;
+    if (!auditId || isFinished) return;
     const urls: string[] = [];
     for (let i = 0; i < files.length; i++) urls.push(await uploadImage(auditId, cat, id, files[i]));
-
-    setImagesState(prev => ({
-      ...prev,
-      [cat]: { ...(prev[cat] || {}), [id]: [...(prev[cat]?.[id] || []), ...urls] },
-    }));
-
+    setImagesState(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [id]: [...(prev[cat]?.[id] || []), ...urls] } }));
     setQuestions(prev => {
-      const updated = prev[cat].map(q => q.id === id ? { ...q, images: [...q.images, ...urls] } : q);
+      const updated = prev[cat].map(q => (q.id === id ? { ...q, images: [...q.images, ...urls] } : q));
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
     });
   };
 
-  // --- Sprawdzenie kompletności kategorii
-  const isCategoryComplete = (cat: string): boolean => {
-    const list = questions[cat];
-    if (!list || list.length === 0) return false;
-    return list.every(q => q.answer === true || q.answer === false);
+  /* ------------------ Rozpoczęcie nowego audytu ------------------ */
+  const handleStartNewAudit = () => setStartingAudit(true);
+
+  const handleAuditSubmit = async () => {
+    if (!leaderName.trim()) return;
+
+    setLoading(true);
+    const { data, error } = await supabase.rpc("get_next_audit_id");
+    if (error) { console.error(error); setLoading(false); return; }
+    const id = Number(data);
+    setAuditId(id);
+
+    const now = new Date().toISOString();
+    for (const cat of categories) {
+      for (let i = 0; i < initialQuestions.length; i++) {
+        await supabase.from("audit_answers").insert({
+          audit_id: id,
+          category: cat,
+          question_id: String(i + 1),
+          question_text: initialQuestions[i].text,
+          answer: null,
+          note: "",
+          images: [],
+          is_finished: false,
+          auditor_name: auditorName,
+          leader_name: leaderName,
+          updated_at: now,
+        });
+      }
+    }
+    setStartingAudit(false);
+    setLoading(false);
   };
 
-  // --- ADMIN
+  /* ------------------ Reset audytu / cofnięcie ------------------ */
+  const handleAuditReset = () => {
+    setAuditId(null);
+    setQuestions({});
+    setImagesState({});
+    setActiveTab("Krytyczne");
+    setActiveCategory(categories[0]);
+    setLeaderName("");
+    setIsFinished(false);
+    setStartingAudit(false);
+  };
+
+  /* ------------------ Render ------------------ */
   if (auditId === 999 && auditorName.toLowerCase() === "admin") {
     return <AdminPanel auditId={auditId} auditorName={auditorName} setAuditId={setAuditId} setAuditorName={setAuditorName} />;
   }
 
-  // --- LOADER
-  if (auditId === null) {
+  if (auditId === null && startingAudit) {
     return (
       <AuditLoader
-        auditInput={auditInput}
-        setAuditInput={setAuditInput}
         auditorName={auditorName}
-        setAuditorName={setAuditorName}
         leaderName={leaderName}
         setLeaderName={setLeaderName}
-        finishedAudits={finishedAudits}
-        auditorsList={fixedAuditorsList} // stała lista
-        leadersList={fixedLeadersList}   // stała lista
+        leadersList={fixedLeadersList}
         handleAuditSubmit={handleAuditSubmit}
         loading={loading}
-        setAuditId={setAuditId}
-        setIsFinished={setIsFinished}
+        onCancel={handleAuditReset} // cofnięcie do listy audytów
       />
     );
   }
 
-  // --- MAIN VIEW
+  if (!auditId) {
+    return (
+      <div style={{ padding: 20, maxWidth: 400, margin: "50px auto", textAlign: "center" }}>
+        
+        <button
+          onClick={handleStartNewAudit}
+          style={{ padding: "12px 20px", fontSize: 16, backgroundColor: "#1464f4", color: "white", border: "none", borderRadius: 8, width: "100%", cursor: "pointer", marginBottom: 20 }}
+        >
+          Rozpocznij nowy obchód
+        </button>
+
+      
+        {unfinishedAudits.length > 0 && (
+          <>
+            <h3>Niedokończone audyty</h3>
+            <select
+              style={{ padding: 12, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc", marginBottom: 20 }}
+              onChange={e => { const id = Number(e.target.value); if (id) setAuditId(id); }}
+            >
+              <option value="">— wybierz —</option>
+              {unfinishedAudits.map(id => <option key={id} value={id}>Audyt {id}</option>)}
+            </select>
+          </>
+        )}
+ <h3>Zakończone obchody</h3>
+        <select
+          style={{ padding: 12, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc" }}
+          onChange={e => { const id = Number(e.target.value); if (id) { setAuditId(id); setIsFinished(true); } }}
+        >
+          <option value="">— wybierz —</option>
+          {finishedAudits.map(id => <option key={id} value={id}>Obchód {id}</option>)}
+        </select>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
       <AuditActions
@@ -276,7 +278,9 @@ export const AuditForm: React.FC = () => {
         categories={categories}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
-        isCategoryComplete={isCategoryComplete}
+        isCategoryComplete={cat =>
+          questions[cat]?.length === 8 && questions[cat].every(q => q.answer === true || q.answer === false)
+        }
       />
 
       <AuditTabs activeTab={activeTab} setActiveTab={setActiveTab} />

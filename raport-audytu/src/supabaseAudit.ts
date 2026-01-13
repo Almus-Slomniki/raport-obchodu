@@ -28,19 +28,28 @@ export const loadAuditData = async (auditId: number): Promise<{
     if (!questions[row.category]) questions[row.category] = [];
     if (!images[row.category]) images[row.category] = {};
 
-    const parsedImages = row.images ? JSON.parse(row.images) : [];
+    // BEZPIECZNE PARSOWANIE IMAGES
+    let parsedImages: string[] = [];
+    try {
+      parsedImages = row.images ? JSON.parse(row.images) : [];
+      if (!Array.isArray(parsedImages)) parsedImages = [];
+    } catch (e) {
+      console.warn(`Niepoprawny JSON w polu images audytu ${auditId}, pytanie ${row.question_id}`, e);
+      parsedImages = [];
+    }
 
     questions[row.category].push({
       id: row.question_id.toString(),
       text: row.question_text,
       answer: row.answer,
-      note: row.note,
+      note: row.note ?? '',
       images: parsedImages,
     });
 
     images[row.category][row.question_id] = parsedImages;
   });
 
+  // Najstarsza data pytania
   const auditDate = data.length > 0
     ? data.reduce((min: string, row: any) =>
         new Date(row.created_at) < new Date(min) ? row.created_at : min,
