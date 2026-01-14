@@ -248,33 +248,43 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
         )}
       </div>
 
-      {/* ZDJĘCIA + DODAJ */}
-      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-        <label style={{ cursor: "pointer", fontSize: 24 }}>
-          📸
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            capture="environment"
-            onChange={e => e.target.files && addImages(e.target.files)}
-            style={{ display: "none" }}
-          />
-        </label>
+    {/* ZDJĘCIA + DODAJ */}
+<div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+ 
 
-        <button
-          onClick={handleAddEntry}
-          style={{
-            padding: "10px 20px",
-            background: "#1464f4",
-            color: "white",
-            borderRadius: 6,
-            fontWeight: "bold"
-          }}
-        >
-          Dodaj
-        </button>
-      </div>
+  <div style={{ display: "flex", gap: 10 }}>
+    <label style={{ cursor: "pointer", fontSize: 24 }}>
+      📸
+       {images.length > 0 && (
+    <div style={{ fontStyle: "italic", color: "green" }}>
+      Dodano {images.length} {images.length === 1 ? "zdjęcie" : "zdjęcia"}
+    </div>
+  )}
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        capture="environment"
+        onChange={e => e.target.files && addImages(e.target.files)}
+        style={{ display: "none" }}
+      />
+    </label>
+
+    <button
+      onClick={handleAddEntry}
+      style={{
+        padding: "10px 20px",
+        background: "#1464f4",
+        color: "white",
+        borderRadius: 6,
+        fontWeight: "bold"
+      }}
+    >
+      Dodaj
+    </button>
+  </div>
+</div>
+
     </div>
   );
 };

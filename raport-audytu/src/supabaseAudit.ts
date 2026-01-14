@@ -31,7 +31,15 @@ export const loadAuditData = async (auditId: number): Promise<{
     // BEZPIECZNE PARSOWANIE IMAGES
     let parsedImages: string[] = [];
     try {
-      parsedImages = row.images ? JSON.parse(row.images) : [];
+      if (row.images) {
+        if (typeof row.images === 'string') {
+          parsedImages = row.images.trim() !== '' ? JSON.parse(row.images) : [];
+        } else if (Array.isArray(row.images)) {
+          parsedImages = row.images;
+        } else {
+          parsedImages = [];
+        }
+      }
       if (!Array.isArray(parsedImages)) parsedImages = [];
     } catch (e) {
       console.warn(`Niepoprawny JSON w polu images audytu ${auditId}, pytanie ${row.question_id}`, e);
@@ -92,13 +100,42 @@ export const saveAnswer = async (auditId: number, category: string, question: Qu
 /* -------------------------------------------------------------------------- */
 /*                                UPLOAD IMAGE                                */
 /* -------------------------------------------------------------------------- */
-export const uploadImage = async (auditId: number, category: string, questionId: string, file: File): Promise<string> => {
-  const path = `audits/${auditId}/${category}/${questionId}/${Date.now()}-${file.name}`;
+// Helper: bezpieczna nazwa pliku, zachowujemy rozszerzenie
+const sanitizeFileName = (fileName: string) => {
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot === -1) return fileName.replace(/[^a-zA-Z0-9-_]/g, '_');
+  const name = fileName.substring(0, lastDot).replace(/[^a-zA-Z0-9-_]/g, '_');
+  const ext = fileName.substring(lastDot); // zachowujemy kropkę i rozszerzenie
+  return name + ext;
+};
+
+export const uploadImage = async (
+  auditId: number,
+  category: string,
+  questionId: string,
+  file: File
+): Promise<string> => {
+  const path = `audits/${auditId}/${sanitizeFileName(category)}/${sanitizeFileName(questionId)}/${Date.now()}-${sanitizeFileName(file.name)}`;
+
+  const { error: uploadError } = await supabase.storage.from('audit-images').upload(path, file);
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data: publicUrlData } = supabase.storage.from('audit-images').getPublicUrl(path);
+  if (!publicUrlData?.publicUrl) throw new Error('Nie udało się wygenerować publicznego URL');
+
+  return publicUrlData.publicUrl;
+};
+
+export const uploadNonCriticalImage = async (auditId: number, file: File): Promise<string> => {
+  const path = `niekrytyczne/${auditId}/${Date.now()}-${sanitizeFileName(file.name)}`;
+
   const { error } = await supabase.storage.from('audit-images').upload(path, file);
   if (error) throw new Error(error.message);
 
   const { data } = supabase.storage.from('audit-images').getPublicUrl(path);
-  return data?.publicUrl ?? '';
+  if (!data?.publicUrl) throw new Error('Nie udało się wygenerować publicznego URL');
+
+  return data.publicUrl;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -204,15 +241,6 @@ export const deleteNonCriticalEntry = async (id: number): Promise<boolean> => {
   }
 
   return true;
-};
-
-export const uploadNonCriticalImage = async (auditId: number, file: File): Promise<string> => {
-  const path = `niekrytyczne/${auditId}/${Date.now()}-${file.name}`;
-  const { error } = await supabase.storage.from("audit-images").upload(path, file);
-  if (error) throw new Error(error.message);
-
-  const { data } = supabase.storage.from("audit-images").getPublicUrl(path);
-  return data?.publicUrl ?? "";
 };
 
 export { supabase };
