@@ -22,13 +22,12 @@ export const AuditForm: React.FC = () => {
   ];
 
   const [auditId, setAuditId] = useState<number | null>(null);
+  const [inputAuditId, setInputAuditId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">("Krytyczne");
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]);
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
   const [isFinished, setIsFinished] = useState(false);
-  const [finishedAudits, setFinishedAudits] = useState<number[]>([]);
-  const [unfinishedAudits, setUnfinishedAudits] = useState<number[]>([]);
   const [auditorName, setAuditorName] = useState("");
   const [leaderName, setLeaderName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,26 +52,6 @@ export const AuditForm: React.FC = () => {
   }, []);
   useEffect(() => localStorage.setItem("lastActiveCategory", activeCategory), [activeCategory]);
   useEffect(() => localStorage.setItem("lastActiveTab", activeTab), [activeTab]);
-
-  /* ------------------ Załadowanie zakończonych i niedokończonych audytów ------------------ */
-  useEffect(() => {
-    const loadAudits = async () => {
-      // zakończone
-      const { data: finishedData } = await supabase
-        .from("audit_answers")
-        .select("audit_id")
-        .eq("is_finished", true);
-      setFinishedAudits(Array.from(new Set(finishedData?.map((x: any) => x.audit_id) || [])));
-
-      // niedokończone
-      const { data: unfinishedData } = await supabase
-        .from("audit_answers")
-        .select("audit_id")
-        .eq("is_finished", false);
-      setUnfinishedAudits(Array.from(new Set(unfinishedData?.map((x: any) => x.audit_id) || [])));
-    };
-    loadAudits();
-  }, []);
 
   /* ------------------ Ładowanie audytu ------------------ */
   useEffect(() => {
@@ -194,7 +173,7 @@ export const AuditForm: React.FC = () => {
     setLoading(false);
   };
 
-  /* ------------------ Reset audytu / cofnięcie ------------------ */
+  /* ------------------ Reset audytu ------------------ */
   const handleAuditReset = () => {
     setAuditId(null);
     setQuestions({});
@@ -204,6 +183,7 @@ export const AuditForm: React.FC = () => {
     setLeaderName("");
     setIsFinished(false);
     setStartingAudit(false);
+    setInputAuditId("");
   };
 
   /* ------------------ Render ------------------ */
@@ -220,7 +200,7 @@ export const AuditForm: React.FC = () => {
         leadersList={fixedLeadersList}
         handleAuditSubmit={handleAuditSubmit}
         loading={loading}
-        onCancel={handleAuditReset} // cofnięcie do listy audytów
+        onCancel={handleAuditReset}
       />
     );
   }
@@ -228,7 +208,6 @@ export const AuditForm: React.FC = () => {
   if (!auditId) {
     return (
       <div style={{ padding: 20, maxWidth: 400, margin: "50px auto", textAlign: "center" }}>
-        
         <button
           onClick={handleStartNewAudit}
           style={{ padding: "12px 20px", fontSize: 16, backgroundColor: "#1464f4", color: "white", border: "none", borderRadius: 8, width: "100%", cursor: "pointer", marginBottom: 20 }}
@@ -236,27 +215,22 @@ export const AuditForm: React.FC = () => {
           Rozpocznij nowy obchód
         </button>
 
-      
-        {unfinishedAudits.length > 0 && (
-          <>
-            <h3>Niedokończone audyty</h3>
-            <select
-              style={{ padding: 12, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc", marginBottom: 20 }}
-              onChange={e => { const id = Number(e.target.value); if (id) setAuditId(id); }}
-            >
-              <option value="">— wybierz —</option>
-              {unfinishedAudits.map(id => <option key={id} value={id}>Audyt {id}</option>)}
-            </select>
-          </>
-        )}
- <h3>Zakończone obchody</h3>
-        <select
-          style={{ padding: 12, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc" }}
-          onChange={e => { const id = Number(e.target.value); if (id) { setAuditId(id); setIsFinished(true); } }}
-        >
-          <option value="">— wybierz —</option>
-          {finishedAudits.map(id => <option key={id} value={id}>Obchód {id}</option>)}
-        </select>
+        <div style={{ marginBottom: 20 }}>
+          <h3>Wczytaj audyt po numerze</h3>
+          <input
+            type="number"
+            value={inputAuditId}
+            onChange={e => setInputAuditId(e.target.value)}
+            placeholder="Wpisz numer audytu"
+            style={{ padding: 10, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc", marginBottom: 10 }}
+          />
+          <button
+            onClick={() => { if (inputAuditId) setAuditId(Number(inputAuditId)); }}
+            style={{ padding: "10px 20px", fontSize: 16, backgroundColor: "#28a745", color: "white", border: "none", borderRadius: 8, cursor: "pointer", width: "100%" }}
+          >
+            Wczytaj audyt
+          </button>
+        </div>
       </div>
     );
   }
