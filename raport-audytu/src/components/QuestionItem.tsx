@@ -69,8 +69,24 @@ export const QuestionItem: React.FC<Props> = ({
   return (
     <div style={{ marginBottom: 10, borderBottom: '1px solid #ccc', paddingBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginBottom: 2 }}>
-        <p style={{ fontSize: 14, flex: 1, margin: 0, fontWeight: 500 }}>{q.text}</p>
+<div style={{ flex: 1 }}>
+  <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>
+    {q.text}
+  </p>
 
+  {q.description && (
+    <p
+      style={{
+        fontSize: 12,
+        margin: '2px 0 0 0',
+        color: '#666',
+        fontStyle: 'italic',
+      }}
+    >
+      {q.description}
+    </p>
+  )}
+</div>
         {/* Przycisk "TAK" */}
         <button
           onClick={() => handleToggleAnswer(true)}
