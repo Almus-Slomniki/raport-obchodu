@@ -37,27 +37,32 @@ export const QuestionItem: React.FC<Props> = ({
   const [showNote, setShowNote] = useState(false);
   const [showImages, setShowImages] = useState(false);
 
-  const handleRemoveImage = (index: number) => {
-    if (isFinished) return;
+const handleRemoveImage = (index: number) => {
+  if (isFinished) return;
 
-    const updatedImages = [...images];
-    updatedImages.splice(index, 1);
+  // Dodajemy potwierdzenie przed usunięciem
+  const confirmDelete = window.confirm('Czy na pewno chcesz usunąć to zdjęcie?');
+  if (!confirmDelete) return;
 
-    setImagesState(prev => ({
-      ...prev,
-      [activeTab]: {
-        ...prev[activeTab],
-        [q.id]: updatedImages
-      }
-    }));
+  const updatedImages = [...images];
+  updatedImages.splice(index, 1);
 
-    const updatedQuestions = questions[activeTab].map(question =>
-      question.id === q.id ? { ...question, images: updatedImages } : question
-    );
-    setQuestions(prev => ({ ...prev, [activeTab]: updatedQuestions }));
+  setImagesState(prev => ({
+    ...prev,
+    [activeTab]: {
+      ...prev[activeTab],
+      [q.id]: updatedImages
+    }
+  }));
 
-    saveAnswer(auditId, activeTab, { ...q, images: updatedImages });
-  };
+  const updatedQuestions = questions[activeTab].map(question =>
+    question.id === q.id ? { ...question, images: updatedImages } : question
+  );
+  setQuestions(prev => ({ ...prev, [activeTab]: updatedQuestions }));
+
+  saveAnswer(auditId, activeTab, { ...q, images: updatedImages });
+};
+
 
   const handleToggleAnswer = (value: boolean) => {
     if (isFinished) return;
