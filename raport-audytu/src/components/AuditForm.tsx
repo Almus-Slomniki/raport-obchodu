@@ -10,6 +10,7 @@ import { AuditLoader } from "./AuditLoader";
 import { AuditTabs } from "./AuditTabs";
 import { CategorySelector } from "./CategorySelector";
 import { CriticalQuestions } from "./CriticalQuestions";
+import "./AuditForm.css"
 
 export const AuditForm: React.FC = () => {
   const fixedLeadersList = [
@@ -207,31 +208,28 @@ export const AuditForm: React.FC = () => {
 
   if (!auditId) {
     return (
-      <div style={{ padding: 20, maxWidth: 400, margin: "50px auto", textAlign: "center" }}>
-        <button
-          onClick={handleStartNewAudit}
-          style={{ padding: "12px 20px", fontSize: 16, backgroundColor: "#1464f4", color: "white", border: "none", borderRadius: 8, width: "100%", cursor: "pointer", marginBottom: 20 }}
-        >
-          Rozpocznij nowy obchód
-        </button>
+ <div className="start-wrapper">
+  <div className="start-section">
+    <button className="start-button" onClick={handleStartNewAudit}>
+      Rozpocznij nowy obchód
+    </button>
 
-        <div style={{ marginBottom: 20 }}>
-          <h3>Wczytaj audyt po numerze</h3>
-          <input
-            type="number"
-            value={inputAuditId}
-            onChange={e => setInputAuditId(e.target.value)}
-            placeholder="Wpisz numer audytu"
-            style={{ padding: 10, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc", marginBottom: 10 }}
-          />
-          <button
-            onClick={() => { if (inputAuditId) setAuditId(Number(inputAuditId)); }}
-            style={{ padding: "10px 20px", fontSize: 16, backgroundColor: "#28a745", color: "white", border: "none", borderRadius: 8, cursor: "pointer", width: "100%" }}
-          >
-            Wczytaj audyt
-          </button>
-        </div>
-      </div>
+    <div className="load-section">
+      <h3>Wczytaj audyt po numerze</h3>
+      <input
+        type="number"
+        value={inputAuditId}
+        onChange={e => setInputAuditId(e.target.value)}
+        placeholder="Wpisz numer audytu"
+      />
+      <button onClick={() => { if (inputAuditId) setAuditId(Number(inputAuditId)); }}>
+        Wczytaj audyt
+      </button>
+    </div>
+  </div>
+</div>
+
+
     );
   }
 

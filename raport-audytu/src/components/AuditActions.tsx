@@ -3,7 +3,8 @@ import { supabase } from '../supabaseClient';
 import { generatePDF } from "../utils/generatePDF";
 import { exportToExcel } from "../utils/exportToExcel";
 import { generateNonCriticalPDF } from "../utils/GenerateNonCriticalPDF"; // <-- poprawiony import
-
+import "./AuditActions.css"
+ 
 interface AuditActionsProps {
   auditId: number;
   isFinished: boolean;
@@ -74,114 +75,60 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
   };
 
   return (
-    <div style={{ 
-      margin: '40px 0', 
-      display: 'flex', 
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 20 
-    }}>
-      {/* Nagłówek raportu */}
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <h2 style={{ margin: 0 }}>Raport obchodu</h2>
-        <div>Numer obchodu: <strong>{auditId}</strong></div>
-        <div>Lider: <strong>{leaderName || '-'}</strong></div>
-        <div>Audytor: <strong>{auditorName || '-'}</strong></div>
-       
-      </div>
+ <div className="audit-actions-wrapper">
+  {/* Nagłówek */}
+  <div className="audit-header">
+    <h2>Raport obchodu</h2>
+    <div>Numer obchodu: <strong>{auditId}</strong></div>
+    <div>Lider: <strong>{leaderName || '-'}</strong></div>
+    <div>Audytor: <strong>{auditorName || '-'}</strong></div>
+  </div>
 
-      {/* Akcje */}
-      <div style={{ 
-        display: 'flex', 
-        flexWrap: "wrap",
-        justifyContent: 'center', 
-        gap: 20 
-      }}>
-        {/* NOWY OBCHÓD */}
+  {/* Przyciski */}
+  <div className="audit-buttons">
+    {/* NOWY OBCHÓD */}
+    <button className="audit-button btn-new" onClick={startNewAudit}>
+      Nowy obchód
+    </button>
+
+    {/* ZAKOŃCZ OBCHÓD */}
+    <button
+      className={`audit-button ${isFinished ? 'btn-disabled' : 'btn-finish'}`}
+      onClick={finishAudit}
+      disabled={isFinished}
+    >
+      Zakończ obchód
+    </button>
+
+    {isFinished && (
+      <>
+        {/* PDF krytyczne */}
         <button
-          onClick={startNewAudit}
-          style={{
-            padding: '12px 25px',
-            fontSize: 16,
-            backgroundColor: '#f44336',
-            color: 'white',
-            border: 'none',
-            borderRadius: 8,
-            cursor: 'pointer',
-          }}
+          className="audit-button btn-critical"
+          onClick={() => generatePDF(questions, imagesState, auditorName, leaderName)}
         >
-          Nowy obchód
+          Generuj krytyczne
         </button>
 
-        {/* ZAKOŃCZ OBCHÓD */}
+        {/* PDF niekrytyczne */}
         <button
-          onClick={finishAudit}
-          disabled={isFinished}
-          style={{
-            padding: '12px 25px',
-            fontSize: 16,
-            backgroundColor: isFinished ? '#aaa' : '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: 8,
-            cursor: isFinished ? 'not-allowed' : 'pointer',
-          }}
+          className="audit-button btn-noncritical"
+          onClick={exportNonCriticalPDF}
         >
-          Zakończ obchód
+          Generuj niekrytyczne
         </button>
 
-        {isFinished && (
-          <>
-            {/* PDF krytyczne */}
-            <button
-              onClick={() => generatePDF(questions, imagesState, auditorName, leaderName)}
-              style={{
-                padding: '12px 22px',
-                fontSize: 16,
-                backgroundColor: '#1464f4',
-                color: 'white',
-                border: 'none',
-                borderRadius: 8,
-                cursor: 'pointer',
-              }}
-            >
-              Generuj krytyczne
-            </button>
+        {/* Excel */}
+        <button
+          className="audit-button btn-excel"
+          onClick={() => exportToExcel(questions, auditId)}
+        >
+          Eksportuj do Excel
+        </button>
+      </>
+    )}
+  </div>
+</div>
 
-            {/* PDF niekrytyczne */}
-            <button
-              onClick={exportNonCriticalPDF}
-              style={{
-                padding: '12px 22px',
-                fontSize: 16,
-                backgroundColor: '#ff9800',
-                color: 'white',
-                border: 'none',
-                borderRadius: 8,
-                cursor: 'pointer',
-              }}
-            >
-              Generuj niekrytyczne
-            </button>
-
-            {/* EXCEL */}
-            <button
-              onClick={() => exportToExcel(questions, auditId)}
-              style={{
-                padding: '12px 22px',
-                fontSize: 16,
-                backgroundColor: '#0a7c32',
-                color: 'white',
-                border: 'none',
-                borderRadius: 8,
-                cursor: 'pointer',
-              }}
-            >
-              Eksportuj do Excel
-            </button>
-          </>
-        )}
-      </div>
-    </div>
   );
 };
