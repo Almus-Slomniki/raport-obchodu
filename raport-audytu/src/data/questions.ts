@@ -1,10 +1,13 @@
+// src/data/questions.ts
+
 export interface Question {
   id: string;
   text: string;
-  answer?: boolean | null;
-  note?: string | null;
-  images: string[]; // URL-e zdjęć
-  description?: string | null; // nowy opis pod pytaniem
+  answer?: boolean;
+  note?: string;
+  images: string[];
+  disabled?: boolean;
+  description?: string; // <-- dodajemy, bo była w initialQuestions
 }
 
 export interface NonCriticalEntry {
@@ -15,11 +18,10 @@ export interface NonCriticalEntry {
   note?: string;
 }
 
-
-export const categories = [  "CMG.2", "CMG.3","LWN", "CMG.5","CMG.6"];
+export const categories = ["CMG.2", "CMG.3", "LWN", "CMG.5", "CMG.6"];
 
 export const initialQuestions: Question[] = [
-  { id: "1", text: "Zaleganie ścinek pod piłą", images: [], description: "(przykłady niezgodności: widoczne ścinki z dnia poprzedniego (brudne, inny produkt itp.),posadzka zakryta ścinkami, nagromadzone ścinki poza taśmociągiem itp.)" },
+  { id: "1", text: "Zaleganie ścinek pod piłą", images: [], description: "(przykłady niezgodności: widoczne ścinki z dnia poprzedniego (brudne, inny produkt itp.), posadzka zakryta ścinkami, nagromadzone ścinki poza taśmociągiem itp.)" },
   { id: "2", text: "Zapylenie maszyn produkcja", images: [], description: "(przykłady niezgodności: tygodniowe zapylenie maszyny, nadmierny pył zasłaniający maszynę itp.)" },
   { id: "3", text: "Zapylenie maszyn UR", images: [], description: "(przykłady niezgodności: zapylone wentylatory, silniki, centralki hydrauliczne, pył zasłaniający kratki itp.)" },
   { id: "4", text: "Nagromadzenie logów odpadowych w maszynie", images: [], description: "" },
@@ -28,4 +30,3 @@ export const initialQuestions: Question[] = [
   { id: "7", text: "Prowizorki na maszynie", images: [], description: "" },
   { id: "8", text: "Zalegający brud", images: [], description: "(przykłady niezgodności: zaschnięty brud powyżej tygodnia = „uciapranie” itp.)" },
 ];
-

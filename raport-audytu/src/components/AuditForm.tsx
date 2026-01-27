@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { categories, initialQuestions, Question } from "../data/questions";
 import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
-import { loadAuditData, saveAnswer, uploadImage } from "../supabaseAudit";
+import { loadAuditData, saveAnswer, uploadImage, setCategoryDisabled } from "../supabaseAudit";
 import { AuditActions } from "./AuditActions";
 import { supabase } from "../supabaseClient";
 import { AdminPanel } from "./AdminPanel";
@@ -10,7 +10,7 @@ import { AuditLoader } from "./AuditLoader";
 import { AuditTabs } from "./AuditTabs";
 import { CategorySelector } from "./CategorySelector";
 import { CriticalQuestions } from "./CriticalQuestions";
-import "./AuditForm.css"
+import "./AuditForm.css";
 
 export const AuditForm: React.FC = () => {
   const fixedLeadersList = [
@@ -28,6 +28,7 @@ export const AuditForm: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]);
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
+  const [disabledCategories, setDisabledCategories] = useState<string[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [auditorName, setAuditorName] = useState("");
   const [leaderName, setLeaderName] = useState("");
@@ -64,17 +65,22 @@ export const AuditForm: React.FC = () => {
       const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
       const qState: QuestionsState = {};
       const iState: ImagesState = {};
+      const disabledSet = new Set<string>();
 
       categories.forEach(cat => {
         qState[cat] = initialQuestions.map((q, i) => {
           const qid = String(i + 1);
-          const loaded = loadedQuestions[cat]?.find((lq: Question) => lq.id === qid);
+          const loaded = loadedQuestions[cat]?.find((lq: Question & { disabled?: boolean }) => lq.id === qid);
+
+          if (loaded?.disabled) disabledSet.add(cat);
+
           return {
             ...q,
             id: qid,
             answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
             note: loaded?.note ?? "",
             images: loaded?.images ?? [],
+            disabled: loaded?.disabled ?? false,
           };
         });
         iState[cat] = loadedImages[cat] || {};
@@ -82,6 +88,7 @@ export const AuditForm: React.FC = () => {
 
       setQuestions(qState);
       setImagesState(iState);
+      setDisabledCategories(Array.from(disabledSet));
 
       const { data: meta } = await supabase
         .from("audit_answers")
@@ -108,7 +115,7 @@ export const AuditForm: React.FC = () => {
 
   /* ------------------ Handlery pytań ------------------ */
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
-    if (isFinished || !auditId) return;
+    if (isFinished || !auditId || disabledCategories.includes(cat)) return;
     setQuestions(prev => {
       const updated = prev[cat].map(q => (q.id === id ? { ...q, answer: value } : q));
       const q = updated.find(x => x.id === id);
@@ -118,7 +125,7 @@ export const AuditForm: React.FC = () => {
   };
 
   const updateNoteFn = (cat: string, id: string, note: string) => {
-    if (isFinished || !auditId) return;
+    if (isFinished || !auditId || disabledCategories.includes(cat)) return;
     setQuestions(prev => {
       const updated = prev[cat].map(q => (q.id === id ? { ...q, note } : q));
       const q = updated.find(x => x.id === id);
@@ -128,7 +135,7 @@ export const AuditForm: React.FC = () => {
   };
 
   const addImageFn = async (cat: string, id: string, files: FileList) => {
-    if (!auditId || isFinished) return;
+    if (!auditId || isFinished || disabledCategories.includes(cat)) return;
     const urls: string[] = [];
     for (let i = 0; i < files.length; i++) urls.push(await uploadImage(auditId, cat, id, files[i]));
     setImagesState(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [id]: [...(prev[cat]?.[id] || []), ...urls] } }));
@@ -140,7 +147,20 @@ export const AuditForm: React.FC = () => {
     });
   };
 
-  /* ------------------ Rozpoczęcie nowego audytu ------------------ */
+  /* ------------------ TOGGLE WYŁĄCZENIA LINII ------------------ */
+  const handleToggleCategory = async (cat: string) => {
+    if (!auditId || isFinished) return;
+    const nextDisabled = !disabledCategories.includes(cat);
+
+    const ok = await setCategoryDisabled(auditId, cat, nextDisabled);
+    if (!ok) return;
+
+    setDisabledCategories(prev =>
+      nextDisabled ? [...prev, cat] : prev.filter(c => c !== cat)
+    );
+  };
+
+  /* ------------------ START / RESET ------------------ */
   const handleStartNewAudit = () => setStartingAudit(true);
 
   const handleAuditSubmit = async () => {
@@ -174,7 +194,6 @@ export const AuditForm: React.FC = () => {
     setLoading(false);
   };
 
-  /* ------------------ Reset audytu ------------------ */
   const handleAuditReset = () => {
     setAuditId(null);
     setQuestions({});
@@ -187,7 +206,7 @@ export const AuditForm: React.FC = () => {
     setInputAuditId("");
   };
 
-  /* ------------------ Render ------------------ */
+  /* ------------------ RENDER ------------------ */
   if (auditId === 999 && auditorName.toLowerCase() === "admin") {
     return <AdminPanel auditId={auditId} auditorName={auditorName} setAuditId={setAuditId} setAuditorName={setAuditorName} />;
   }
@@ -208,28 +227,26 @@ export const AuditForm: React.FC = () => {
 
   if (!auditId) {
     return (
- <div className="start-wrapper">
-  <div className="start-section">
-    <button className="start-button" onClick={handleStartNewAudit}>
-      Rozpocznij nowy obchód
-    </button>
+      <div className="start-wrapper">
+        <div className="start-section">
+          <button className="start-button" onClick={handleStartNewAudit}>
+            Rozpocznij nowy obchód
+          </button>
 
-    <div className="load-section">
-      <h3>Wczytaj audyt po numerze</h3>
-      <input
-        type="number"
-        value={inputAuditId}
-        onChange={e => setInputAuditId(e.target.value)}
-        placeholder="Wpisz numer audytu"
-      />
-      <button onClick={() => { if (inputAuditId) setAuditId(Number(inputAuditId)); }}>
-        Wczytaj audyt
-      </button>
-    </div>
-  </div>
-</div>
-
-
+          <div className="load-section">
+            <h3>Wczytaj audyt po numerze</h3>
+            <input
+              type="number"
+              value={inputAuditId}
+              onChange={e => setInputAuditId(e.target.value)}
+              placeholder="Wpisz numer audytu"
+            />
+            <button onClick={() => { if (inputAuditId) setAuditId(Number(inputAuditId)); }}>
+              Wczytaj audyt
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -250,8 +267,11 @@ export const AuditForm: React.FC = () => {
         categories={categories}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
+        disabledCategories={disabledCategories}      // 🔹 dodane
+        onToggleCategory={handleToggleCategory}      // 🔹 dodane
         isCategoryComplete={cat =>
-          questions[cat]?.length === 8 && questions[cat].every(q => q.answer === true || q.answer === false)
+          questions[cat]?.length === initialQuestions.length &&
+          questions[cat].every(q => q.answer === true || q.answer === false)
         }
       />
 

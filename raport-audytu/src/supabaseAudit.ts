@@ -242,5 +242,31 @@ export const deleteNonCriticalEntry = async (id: number): Promise<boolean> => {
 
   return true;
 };
+/* -------------------------------------------------------------------------- */
+/*                           SET CATEGORY DISABLED                             */
+/* -------------------------------------------------------------------------- */
+export const setCategoryDisabled = async (
+  auditId: number,
+  category: string,
+  disabled: boolean
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from("audit_answers")
+      .update({ disabled })
+      .eq("audit_id", auditId)
+      .eq("category", category);
+
+    if (error) {
+      console.error("❌ setCategoryDisabled error:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("❌ setCategoryDisabled exception:", err);
+    return false;
+  }
+};
+
 
 export { supabase };
