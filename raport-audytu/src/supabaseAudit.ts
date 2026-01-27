@@ -6,6 +6,9 @@ import { supabase } from './supabaseClient';
 /* -------------------------------------------------------------------------- */
 /*                               LOAD AUDIT DATA                               */
 /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                               LOAD AUDIT DATA                               */
+/* -------------------------------------------------------------------------- */
 export const loadAuditData = async (auditId: number): Promise<{
   questions: QuestionsState;
   images: ImagesState;
@@ -28,7 +31,7 @@ export const loadAuditData = async (auditId: number): Promise<{
     if (!questions[row.category]) questions[row.category] = [];
     if (!images[row.category]) images[row.category] = {};
 
-    // BEZPIECZNE PARSOWANIE IMAGES
+    // --- Bezpieczne parsowanie images ---
     let parsedImages: string[] = [];
     try {
       if (row.images) {
@@ -36,8 +39,6 @@ export const loadAuditData = async (auditId: number): Promise<{
           parsedImages = row.images.trim() !== '' ? JSON.parse(row.images) : [];
         } else if (Array.isArray(row.images)) {
           parsedImages = row.images;
-        } else {
-          parsedImages = [];
         }
       }
       if (!Array.isArray(parsedImages)) parsedImages = [];
@@ -46,18 +47,31 @@ export const loadAuditData = async (auditId: number): Promise<{
       parsedImages = [];
     }
 
-    questions[row.category].push({
-      id: row.question_id.toString(),
-      text: row.question_text,
-      answer: row.answer,
+    // --- Mapowanie odpowiedzi (true/false) defensywnie ---
+    const answerValue = row.answer;
+    const mappedAnswer =
+      answerValue === true || answerValue === 1 ? true :
+      answerValue === false || answerValue === 0 ? false :
+      undefined;
+
+    const questionObj: Question & { disabled?: boolean } = {
+      id: row.question_id?.toString() ?? '0',
+      text: row.question_text ?? '[BRAK TEKSTU]',
+      description: row.description ?? '',
+      answer: mappedAnswer,
       note: row.note ?? '',
       images: parsedImages,
-    });
+      disabled: row.disabled ?? false,
+    };
 
+    questions[row.category].push(questionObj);
     images[row.category][row.question_id] = parsedImages;
+
+    // --- LOGOWANIE dla debugu ---
+    console.log(`Loaded question ${row.question_id} for category ${row.category}:`, questionObj);
   });
 
-  // Najstarsza data pytania
+  // --- Najstarsza data pytania ---
   const auditDate = data.length > 0
     ? data.reduce((min: string, row: any) =>
         new Date(row.created_at) < new Date(min) ? row.created_at : min,
@@ -66,6 +80,7 @@ export const loadAuditData = async (auditId: number): Promise<{
 
   return { questions, images, auditDate };
 };
+
 
 /* -------------------------------------------------------------------------- */
 /*                                SAVE ANSWER                                 */
@@ -100,12 +115,11 @@ export const saveAnswer = async (auditId: number, category: string, question: Qu
 /* -------------------------------------------------------------------------- */
 /*                                UPLOAD IMAGE                                */
 /* -------------------------------------------------------------------------- */
-// Helper: bezpieczna nazwa pliku, zachowujemy rozszerzenie
 const sanitizeFileName = (fileName: string) => {
   const lastDot = fileName.lastIndexOf('.');
   if (lastDot === -1) return fileName.replace(/[^a-zA-Z0-9-_]/g, '_');
   const name = fileName.substring(0, lastDot).replace(/[^a-zA-Z0-9-_]/g, '_');
-  const ext = fileName.substring(lastDot); // zachowujemy kropkę i rozszerzenie
+  const ext = fileName.substring(lastDot);
   return name + ext;
 };
 
@@ -187,15 +201,13 @@ export const saveNonCriticalEntry = async (auditId: number, entry: NonCriticalEn
   try {
     const { data, error } = await supabase
       .from("non_critical_entries")
-      .insert([
-        {
-          audit_id: auditId,
-          name: entry.name,
-          line: entry.line,
-          images: entry.images || [],
-          note: entry.note ?? null
-        }
-      ])
+      .insert([{
+        audit_id: auditId,
+        name: entry.name,
+        line: entry.line,
+        images: entry.images || [],
+        note: entry.note ?? null
+      }])
       .select();
 
     if (error) {
@@ -242,6 +254,7 @@ export const deleteNonCriticalEntry = async (id: number): Promise<boolean> => {
 
   return true;
 };
+
 /* -------------------------------------------------------------------------- */
 /*                           SET CATEGORY DISABLED                             */
 /* -------------------------------------------------------------------------- */
@@ -267,6 +280,5 @@ export const setCategoryDisabled = async (
     return false;
   }
 };
-
 
 export { supabase };

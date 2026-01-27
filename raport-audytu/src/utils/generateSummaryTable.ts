@@ -6,12 +6,12 @@ export const generateSummaryTable = (
   questions: any,
   auditorName?: string,
   leaderName?: string,
-  auditDate?: string // <-- nowy argument
+  auditDate?: string
 ) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 4;
 
-  let y = 8; // START wyżej
+  let y = 8;
   const baseRowHeight = 16;
   const startX = margin;
 
@@ -21,7 +21,6 @@ export const generateSummaryTable = (
   doc.text("Zagadnienia krytyczne", pageWidth / 2, y, { align: "center" });
   y += 7;
 
-  // --- Informacja o audytorze ---
   if (auditorName) {
     doc.setFontSize(12);
     doc.setFont("Roboto", "normal");
@@ -29,7 +28,6 @@ export const generateSummaryTable = (
     y += 6;
   }
 
-  // --- Informacja o liderze ---
   if (leaderName) {
     doc.setFontSize(12);
     doc.setFont("Roboto", "normal");
@@ -37,7 +35,6 @@ export const generateSummaryTable = (
     y += 6;
   }
 
-  // --- Data zakończenia audytu ---
   if (auditDate) {
     doc.setFontSize(12);
     doc.setFont("Roboto", "normal");
@@ -47,20 +44,19 @@ export const generateSummaryTable = (
 
   doc.setFontSize(14);
 
-  // --- Legenda nad tabelą ---
+  // --- Legenda ---
   doc.setFont("Roboto", "bold");
   doc.setFontSize(10);
   doc.text("Metodologia:", startX, y);
   doc.setFont("Roboto", "normal");
   doc.setFontSize(10);
   doc.text("V = zgodność  X = niezgodność", startX + 30, y);
-  y += 3; // odstęp przed tabelą
+  y += 3;
 
-  // --- Górna linia tabeli ---
+  // --- Kolumny tabeli ---
   const firstColWidth = 120;
   const otherColWidth = (pageWidth - margin * 2 - firstColWidth) / categories.length;
   const totalWidth = firstColWidth + categories.length * otherColWidth;
-  doc.line(startX, y, startX + totalWidth, y);
   const tableStartY = y;
 
   // --- Nagłówki kategorii ---
@@ -77,11 +73,9 @@ export const generateSummaryTable = (
   });
 
   y += baseRowHeight;
-
-  // Linia pod nagłówkami
   doc.line(startX, y, startX + totalWidth, y);
 
-  // --- Pytania i odpowiedzi ---
+  // --- Wiersze pytań ---
   initialQuestions.forEach((q, qi) => {
     const wrappedQText = doc.splitTextToSize(q.text, firstColWidth - 4);
     const desc = q.description || "";
@@ -92,12 +86,12 @@ export const generateSummaryTable = (
       wrappedQText.length * 7 + 4 + wrappedDesc.length * 5
     );
 
-    // --- Rysujemy pytanie ---
+    // --- Pytanie ---
     doc.setFont("Roboto", "normal");
     doc.setFontSize(12);
     doc.text(wrappedQText, startX + 2, y + 7);
 
-    // --- Rysujemy opis pod pytaniem ---
+    // --- Opis ---
     if (wrappedDesc.length > 0) {
       doc.setFontSize(10);
       doc.setTextColor(50, 50, 50);
@@ -108,15 +102,27 @@ export const generateSummaryTable = (
       doc.setFontSize(12);
     }
 
-    // --- Rysujemy symbole odpowiedzi ---
+    // --- Symbole odpowiedzi i szare kolumny dla disabled ---
     categories.forEach((cat, ci) => {
       const qData = questions[cat]?.[qi];
+
+      // 🔹 LOGOWANIE dla debugowania
+      console.log(`Pytanie ${qi + 1}, kategoria ${cat}:`, qData);
+
+      // Jeśli disabled, wypełnij kolumnę szarym tłem
+      if (qData?.disabled) {
+        console.log(`--- Wyciemniam kolumnę ${cat} dla pytania ${qi + 1}`);
+        doc.setFillColor(220, 220, 220);
+        const colX = startX + firstColWidth + ci * otherColWidth;
+        doc.rect(colX, y, otherColWidth, rowHeight, "F");
+      }
+
       let ansSymbol = "";
       if (qData?.answer === true) ansSymbol = "V";
       else if (qData?.answer === false) ansSymbol = "X";
 
       const centerX = startX + firstColWidth + ci * otherColWidth + otherColWidth / 2;
-      const centerY = y + baseRowHeight / 2 + 3;
+      const centerY = y + rowHeight / 2 + 3;
 
       if (ansSymbol === "V") doc.setTextColor(0, 150, 0);
       else if (ansSymbol === "X") doc.setTextColor(200, 0, 0);
@@ -134,7 +140,7 @@ export const generateSummaryTable = (
     doc.line(startX, y, startX + totalWidth, y);
   });
 
-  // --- pionowe linie tabeli ---
+  // --- Pionowe linie ---
   doc.line(startX, tableStartY, startX, y);
   doc.line(startX + firstColWidth, tableStartY, startX + firstColWidth, y);
   categories.forEach((_, i) => {

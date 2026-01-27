@@ -36,7 +36,7 @@ export const AuditForm: React.FC = () => {
   const [nonCriticalEntries, setNonCriticalEntries] = useState<NonCriticalEntry[]>([]);
   const [startingAudit, setStartingAudit] = useState(false);
 
-  /* ------------------ Pobranie zalogowanego audytora ------------------ */
+  /* ------------------ Pobranie audytora ------------------ */
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -45,7 +45,7 @@ export const AuditForm: React.FC = () => {
     fetchUser();
   }, []);
 
-  /* ------------------ Przywracanie kategorii i zakładki ------------------ */
+  /* ------------------ Przywracanie zakładki i kategorii ------------------ */
   useEffect(() => {
     const lastCategory = localStorage.getItem("lastActiveCategory");
     const lastTab = localStorage.getItem("lastActiveTab");
@@ -62,53 +62,61 @@ export const AuditForm: React.FC = () => {
 
     const load = async () => {
       setLoading(true);
-      const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
-      const qState: QuestionsState = {};
-      const iState: ImagesState = {};
-      const disabledSet = new Set<string>();
+      try {
+        const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
+        const qState: QuestionsState = {};
+        const iState: ImagesState = {};
+        const disabledSet = new Set<string>();
 
-      categories.forEach(cat => {
-        qState[cat] = initialQuestions.map((q, i) => {
-          const qid = String(i + 1);
-          const loaded = loadedQuestions[cat]?.find((lq: Question & { disabled?: boolean }) => lq.id === qid);
+        categories.forEach(cat => {
+          qState[cat] = initialQuestions.map((q, i) => {
+            const qid = String(i + 1);
+            const loaded = loadedQuestions[cat]?.find((lq: Question & { disabled?: boolean }) => lq.id === qid);
 
-          if (loaded?.disabled) disabledSet.add(cat);
+     
+            if (loaded?.disabled) disabledSet.add(cat);
 
-          return {
-            ...q,
-            id: qid,
-            answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
-            note: loaded?.note ?? "",
-            images: loaded?.images ?? [],
-            disabled: loaded?.disabled ?? false,
-          };
+            return {
+              ...q,
+              id: qid,
+              answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
+              note: loaded?.note ?? "",
+              images: loaded?.images ?? [],
+              disabled: loaded?.disabled ?? false, // ✅ kluczowe dla PDF
+            };
+          });
+          iState[cat] = loadedImages[cat] || {};
         });
-        iState[cat] = loadedImages[cat] || {};
-      });
 
-      setQuestions(qState);
-      setImagesState(iState);
-      setDisabledCategories(Array.from(disabledSet));
+        setQuestions(qState);
+        setImagesState(iState);
+        setDisabledCategories(Array.from(disabledSet));
 
-      const { data: meta } = await supabase
-        .from("audit_answers")
-        .select("auditor_name, leader_name, is_finished")
-        .eq("audit_id", auditId)
-        .limit(1)
-        .single();
+        const { data: meta } = await supabase
+          .from("audit_answers")
+          .select("auditor_name, leader_name, is_finished")
+          .eq("audit_id", auditId)
+          .limit(1)
+          .single();
 
-      if (meta?.auditor_name) setAuditorName(meta.auditor_name);
-      if (meta?.leader_name) setLeaderName(meta.leader_name);
-      setIsFinished(meta?.is_finished ?? false);
+        if (meta?.auditor_name) setAuditorName(meta.auditor_name);
+        if (meta?.leader_name) setLeaderName(meta.leader_name);
+        setIsFinished(meta?.is_finished ?? false);
 
-      const { data: entries } = await supabase
-        .from("non_critical_entries")
-        .select("*")
-        .eq("audit_id", auditId)
-        .order("id");
+        const { data: entries } = await supabase
+          .from("non_critical_entries")
+          .select("*")
+          .eq("audit_id", auditId)
+          .order("id");
 
-      setNonCriticalEntries((entries as NonCriticalEntry[]) || []);
-      setLoading(false);
+        setNonCriticalEntries((entries as NonCriticalEntry[]) || []);
+
+      } catch (err) {
+        console.error("Błąd ładowania audytu:", err);
+        alert("Wystąpił błąd podczas ładowania audytu.");
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [auditId, auditorName]);
@@ -183,6 +191,7 @@ export const AuditForm: React.FC = () => {
           answer: null,
           note: "",
           images: [],
+          disabled: false, // ✅ ustawienie początkowe
           is_finished: false,
           auditor_name: auditorName,
           leader_name: leaderName,
@@ -232,7 +241,6 @@ export const AuditForm: React.FC = () => {
           <button className="start-button" onClick={handleStartNewAudit}>
             Rozpocznij nowy obchód
           </button>
-
           <div className="load-section">
             <h3>Wczytaj audyt po numerze</h3>
             <input
@@ -267,8 +275,8 @@ export const AuditForm: React.FC = () => {
         categories={categories}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
-        disabledCategories={disabledCategories}      // 🔹 dodane
-        onToggleCategory={handleToggleCategory}      // 🔹 dodane
+        disabledCategories={disabledCategories} 
+        onToggleCategory={handleToggleCategory} 
         isCategoryComplete={cat =>
           questions[cat]?.length === initialQuestions.length &&
           questions[cat].every(q => q.answer === true || q.answer === false)
