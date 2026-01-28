@@ -7,7 +7,7 @@ export const generatePDF = async (
   questions: any,
   imagesState: any,
   auditorName?: string,
-  leaderName?: string
+  leaderName?: string,
 ) => {
   const doc = new jsPDF("l", "mm", "a4");
 
@@ -16,10 +16,10 @@ export const generatePDF = async (
   doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
   doc.setFont("Roboto");
 
-  // Nagłówek z audytorem i liderem
-  doc.setFontSize(14);
-  doc.text(`Audytor: ${auditorName || "-"}`, 10, 10);
-  doc.text(`Lider: ${leaderName || "-"}`, 10, 18);
+  // // Nagłówek z audytorem i liderem
+  // doc.setFontSize(14);
+  // doc.text(`Audytor: ${auditorName || "-"}`, 10, 10);
+  // doc.text(`Lider: ${leaderName || "-"}`, 10, 18);
 
   // Generujemy tabelę podsumowującą
   const startY = generateSummaryTable(doc, questions, auditorName, leaderName);

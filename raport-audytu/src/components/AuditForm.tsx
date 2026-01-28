@@ -23,12 +23,11 @@ export const AuditForm: React.FC = () => {
   ];
 
   const [auditId, setAuditId] = useState<number | null>(null);
-  const [inputAuditId, setInputAuditId] = useState<string>("");
+  const [inputAuditId, setInputAuditId] = useState("");
   const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">("Krytyczne");
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]);
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
-  const [disabledCategories, setDisabledCategories] = useState<string[]>([]);
   const [isFinished, setIsFinished] = useState(false);
   const [auditorName, setAuditorName] = useState("");
   const [leaderName, setLeaderName] = useState("");
@@ -36,26 +35,27 @@ export const AuditForm: React.FC = () => {
   const [nonCriticalEntries, setNonCriticalEntries] = useState<NonCriticalEntry[]>([]);
   const [startingAudit, setStartingAudit] = useState(false);
 
-  /* ------------------ Pobranie audytora ------------------ */
+  /* ------------------ AUDITOR ------------------ */
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setAuditorName(user.user_metadata.full_name || user.email || "");
-    };
-    fetchUser();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        setAuditorName(data.user.user_metadata.full_name || data.user.email || "");
+      }
+    });
   }, []);
 
-  /* ------------------ Przywracanie zakładki i kategorii ------------------ */
+  /* ------------------ LOCAL STORAGE ------------------ */
   useEffect(() => {
-    const lastCategory = localStorage.getItem("lastActiveCategory");
-    const lastTab = localStorage.getItem("lastActiveTab");
-    if (lastCategory && categories.includes(lastCategory)) setActiveCategory(lastCategory);
-    if (lastTab === "Krytyczne" || lastTab === "Niekrytyczne") setActiveTab(lastTab);
+    const c = localStorage.getItem("lastActiveCategory");
+    const t = localStorage.getItem("lastActiveTab");
+    if (c && categories.includes(c)) setActiveCategory(c);
+    if (t === "Krytyczne" || t === "Niekrytyczne") setActiveTab(t);
   }, []);
+
   useEffect(() => localStorage.setItem("lastActiveCategory", activeCategory), [activeCategory]);
   useEffect(() => localStorage.setItem("lastActiveTab", activeTab), [activeTab]);
 
-  /* ------------------ Ładowanie audytu ------------------ */
+  /* ------------------ LOAD AUDIT ------------------ */
   useEffect(() => {
     if (!auditId) return;
     if (auditId === 999 && auditorName.toLowerCase() === "admin") return;
@@ -64,33 +64,36 @@ export const AuditForm: React.FC = () => {
       setLoading(true);
       try {
         const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
+
         const qState: QuestionsState = {};
         const iState: ImagesState = {};
-        const disabledSet = new Set<string>();
 
         categories.forEach(cat => {
+          const isCategoryDisabled =
+            loadedQuestions[cat]?.some(q => q.disabled) ?? false;
+
           qState[cat] = initialQuestions.map((q, i) => {
             const qid = String(i + 1);
-            const loaded = loadedQuestions[cat]?.find((lq: Question & { disabled?: boolean }) => lq.id === qid);
-
-     
-            if (loaded?.disabled) disabledSet.add(cat);
+            const loaded = loadedQuestions[cat]?.find(lq => lq.id === qid);
 
             return {
               ...q,
               id: qid,
-              answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
+              answer:
+                loaded?.answer === true || loaded?.answer === false
+                  ? loaded.answer
+                  : undefined,
               note: loaded?.note ?? "",
               images: loaded?.images ?? [],
-              disabled: loaded?.disabled ?? false, // ✅ kluczowe dla PDF
+              disabled: isCategoryDisabled, // 🔥 JEDNO ŹRÓDŁO PRAWDY
             };
           });
+
           iState[cat] = loadedImages[cat] || {};
         });
 
         setQuestions(qState);
         setImagesState(iState);
-        setDisabledCategories(Array.from(disabledSet));
 
         const { data: meta } = await supabase
           .from("audit_answers")
@@ -110,22 +113,26 @@ export const AuditForm: React.FC = () => {
           .order("id");
 
         setNonCriticalEntries((entries as NonCriticalEntry[]) || []);
-
-      } catch (err) {
-        console.error("Błąd ładowania audytu:", err);
-        alert("Wystąpił błąd podczas ładowania audytu.");
       } finally {
         setLoading(false);
       }
     };
+
     load();
   }, [auditId, auditorName]);
 
-  /* ------------------ Handlery pytań ------------------ */
+  /* ------------------ HELPERS ------------------ */
+  const isCategoryDisabled = (cat: string) =>
+    questions[cat]?.[0]?.disabled === true;
+
+  /* ------------------ ANSWERS ------------------ */
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
-    if (isFinished || !auditId || disabledCategories.includes(cat)) return;
+    if (isFinished || !auditId || isCategoryDisabled(cat)) return;
+
     setQuestions(prev => {
-      const updated = prev[cat].map(q => (q.id === id ? { ...q, answer: value } : q));
+      const updated = prev[cat].map(q =>
+        q.id === id ? { ...q, answer: value } : q
+      );
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
@@ -133,9 +140,12 @@ export const AuditForm: React.FC = () => {
   };
 
   const updateNoteFn = (cat: string, id: string, note: string) => {
-    if (isFinished || !auditId || disabledCategories.includes(cat)) return;
+    if (isFinished || !auditId || isCategoryDisabled(cat)) return;
+
     setQuestions(prev => {
-      const updated = prev[cat].map(q => (q.id === id ? { ...q, note } : q));
+      const updated = prev[cat].map(q =>
+        q.id === id ? { ...q, note } : q
+      );
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
@@ -143,40 +153,43 @@ export const AuditForm: React.FC = () => {
   };
 
   const addImageFn = async (cat: string, id: string, files: FileList) => {
-    if (!auditId || isFinished || disabledCategories.includes(cat)) return;
+    if (!auditId || isFinished || isCategoryDisabled(cat)) return;
+
     const urls: string[] = [];
-    for (let i = 0; i < files.length; i++) urls.push(await uploadImage(auditId, cat, id, files[i]));
-    setImagesState(prev => ({ ...prev, [cat]: { ...(prev[cat] || {}), [id]: [...(prev[cat]?.[id] || []), ...urls] } }));
+    for (let i = 0; i < files.length; i++) {
+      urls.push(await uploadImage(auditId, cat, id, files[i]));
+    }
+
     setQuestions(prev => {
-      const updated = prev[cat].map(q => (q.id === id ? { ...q, images: [...q.images, ...urls] } : q));
+      const updated = prev[cat].map(q =>
+        q.id === id ? { ...q, images: [...q.images, ...urls] } : q
+      );
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
     });
   };
 
-  /* ------------------ TOGGLE WYŁĄCZENIA LINII ------------------ */
+  /* ------------------ TOGGLE CATEGORY ------------------ */
   const handleToggleCategory = async (cat: string) => {
     if (!auditId || isFinished) return;
-    const nextDisabled = !disabledCategories.includes(cat);
+    const next = !isCategoryDisabled(cat);
 
-    const ok = await setCategoryDisabled(auditId, cat, nextDisabled);
+    const ok = await setCategoryDisabled(auditId, cat, next);
     if (!ok) return;
 
-    setDisabledCategories(prev =>
-      nextDisabled ? [...prev, cat] : prev.filter(c => c !== cat)
-    );
+    setQuestions(prev => ({
+      ...prev,
+      [cat]: prev[cat].map(q => ({ ...q, disabled: next }))
+    }));
   };
 
-  /* ------------------ START / RESET ------------------ */
-  const handleStartNewAudit = () => setStartingAudit(true);
-
+  /* ------------------ START AUDIT ------------------ */
   const handleAuditSubmit = async () => {
     if (!leaderName.trim()) return;
 
     setLoading(true);
-    const { data, error } = await supabase.rpc("get_next_audit_id");
-    if (error) { console.error(error); setLoading(false); return; }
+    const { data } = await supabase.rpc("get_next_audit_id");
     const id = Number(data);
     setAuditId(id);
 
@@ -191,7 +204,7 @@ export const AuditForm: React.FC = () => {
           answer: null,
           note: "",
           images: [],
-          disabled: false, // ✅ ustawienie początkowe
+          disabled: false,
           is_finished: false,
           auditor_name: auditorName,
           leader_name: leaderName,
@@ -199,28 +212,13 @@ export const AuditForm: React.FC = () => {
         });
       }
     }
+
     setStartingAudit(false);
     setLoading(false);
   };
 
-  const handleAuditReset = () => {
-    setAuditId(null);
-    setQuestions({});
-    setImagesState({});
-    setActiveTab("Krytyczne");
-    setActiveCategory(categories[0]);
-    setLeaderName("");
-    setIsFinished(false);
-    setStartingAudit(false);
-    setInputAuditId("");
-  };
-
   /* ------------------ RENDER ------------------ */
-  if (auditId === 999 && auditorName.toLowerCase() === "admin") {
-    return <AdminPanel auditId={auditId} auditorName={auditorName} setAuditId={setAuditId} setAuditorName={setAuditorName} />;
-  }
-
-  if (auditId === null && startingAudit) {
+  if (!auditId && startingAudit) {
     return (
       <AuditLoader
         auditorName={auditorName}
@@ -229,41 +227,48 @@ export const AuditForm: React.FC = () => {
         leadersList={fixedLeadersList}
         handleAuditSubmit={handleAuditSubmit}
         loading={loading}
-        onCancel={handleAuditReset}
+        onCancel={() => setStartingAudit(false)}
       />
     );
   }
 
   if (!auditId) {
     return (
-      <div className="start-wrapper">
-        <div className="start-section">
-          <button className="start-button" onClick={handleStartNewAudit}>
-            Rozpocznij nowy obchód
-          </button>
-          <div className="load-section">
-            <h3>Wczytaj audyt po numerze</h3>
-            <input
-              type="number"
-              value={inputAuditId}
-              onChange={e => setInputAuditId(e.target.value)}
-              placeholder="Wpisz numer audytu"
-            />
-            <button onClick={() => { if (inputAuditId) setAuditId(Number(inputAuditId)); }}>
-              Wczytaj audyt
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="start-wrapper">
+  <div className="start-section">
+    <h3>Audyt / Obchód</h3>
+
+    <button
+      className="start-button"
+      onClick={() => setStartingAudit(true)}
+    >
+      Rozpocznij nowy obchód
+    </button>
+
+    <div className="load-section">
+      <input
+        type="number"
+        placeholder="ID audytu"
+        value={inputAuditId}
+        onChange={e => setInputAuditId(e.target.value)}
+      />
+
+      <button onClick={() => setAuditId(Number(inputAuditId))}>
+        Wczytaj istniejący
+      </button>
+    </div>
+  </div>
+</div>
+
     );
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
+    <div style={{ padding: 20 }}>
       <AuditActions
         auditId={auditId}
         isFinished={isFinished}
-        onStartNewAudit={handleAuditReset}
+        onStartNewAudit={() => setAuditId(null)}
         onFinishAudit={() => setIsFinished(true)}
         questions={questions}
         imagesState={imagesState}
@@ -275,11 +280,10 @@ export const AuditForm: React.FC = () => {
         categories={categories}
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
-        disabledCategories={disabledCategories} 
-        onToggleCategory={handleToggleCategory} 
+        disabledCategories={categories.filter(isCategoryDisabled)}
+        onToggleCategory={handleToggleCategory}
         isCategoryComplete={cat =>
-          questions[cat]?.length === initialQuestions.length &&
-          questions[cat].every(q => q.answer === true || q.answer === false)
+          questions[cat]?.every(q => q.answer === true || q.answer === false)
         }
       />
 
@@ -289,18 +293,18 @@ export const AuditForm: React.FC = () => {
         <CriticalQuestions
           activeCategory={activeCategory}
           questions={questions}
-          setQuestions={setQuestions}
           imagesState={imagesState}
-          setImagesState={setImagesState}
           auditId={auditId}
           isFinished={isFinished}
           setAnswerFn={setAnswerFn}
           updateNoteFn={updateNoteFn}
           addImageFn={addImageFn}
+            setQuestions={setQuestions} 
+            setImagesState={setImagesState} 
         />
       )}
 
-      {activeTab === "Niekrytyczne" && auditId && (
+      {activeTab === "Niekrytyczne" && (
         <NonCriticalEntries auditId={auditId} activeCategory={activeCategory} />
       )}
     </div>

@@ -53,7 +53,7 @@ export const loadAuditData = async (auditId: number): Promise<{
       answerValue === true || answerValue === 1 ? true :
       answerValue === false || answerValue === 0 ? false :
       undefined;
-
+console.log("eoeoe",questions)
     const questionObj: Question & { disabled?: boolean } = {
       id: row.question_id?.toString() ?? '0',
       text: row.question_text ?? '[BRAK TEKSTU]',

@@ -44,14 +44,46 @@ export const generateSummaryTable = (
 
   doc.setFontSize(14);
 
-  // --- Legenda ---
-  doc.setFont("Roboto", "bold");
-  doc.setFontSize(10);
-  doc.text("Metodologia:", startX, y);
-  doc.setFont("Roboto", "normal");
-  doc.setFontSize(10);
-  doc.text("V = zgodność  X = niezgodność", startX + 30, y);
-  y += 3;
+// --- Legenda ---
+doc.setFont("Roboto", "bold");
+doc.setFontSize(10);
+doc.text("Metodologia:", startX + 200, y);
+doc.setFont("Roboto", "normal");
+doc.setFontSize(10);
+doc.text("V = zgodność  X = niezgodność", startX + 230, y);
+
+// --- Legenda ---
+doc.setFont("Roboto", "bold");
+doc.setFontSize(10);
+doc.text("Metodologia:", startX + 200, y);
+doc.setFont("Roboto", "normal");
+doc.setFontSize(10);
+doc.text("V = zgodność  X = niezgodność", startX + 230, y);
+
+// 🔹 Dodanie legendy dla wyłączonej linii
+const legendX = startX + 200;
+const legendY = y + 4;
+const legendWidth = 12;
+const legendHeight = 8;
+
+// szary prostokąt
+doc.setFillColor(240, 240, 240);
+doc.rect(legendX, legendY, legendWidth, legendHeight, "F");
+
+// dwie prążkowane linie w środku prostokąta
+doc.setDrawColor(200, 200, 200);
+doc.setLineWidth(0.5);
+const lineStep = legendHeight / 3;
+doc.line(legendX, legendY + lineStep, legendX + legendWidth, legendY + lineStep);
+doc.line(legendX, legendY + 2 * lineStep, legendX + legendWidth, legendY + 2 * lineStep);
+
+// opis
+doc.setFontSize(10);
+doc.setTextColor(0, 0, 0);
+doc.text(" linia wyłączona z obchodu", legendX + 15 + legendWidth + 4, legendY + 6);
+
+y += 12; // odsunięcie po legendzie
+
 
   // --- Kolumny tabeli ---
   const firstColWidth = 120;
@@ -74,7 +106,6 @@ export const generateSummaryTable = (
 
   y += baseRowHeight;
   doc.line(startX, y, startX + totalWidth, y);
-
   // --- Wiersze pytań ---
   initialQuestions.forEach((q, qi) => {
     const wrappedQText = doc.splitTextToSize(q.text, firstColWidth - 4);
@@ -105,17 +136,35 @@ export const generateSummaryTable = (
     // --- Symbole odpowiedzi i szare kolumny dla disabled ---
     categories.forEach((cat, ci) => {
       const qData = questions[cat]?.[qi];
+console.log("qqq", questions)
+console.log("categories", qData.disabled)
 
       // 🔹 LOGOWANIE dla debugowania
       console.log(`Pytanie ${qi + 1}, kategoria ${cat}:`, qData);
-
       // Jeśli disabled, wypełnij kolumnę szarym tłem
-      if (qData?.disabled) {
-        console.log(`--- Wyciemniam kolumnę ${cat} dla pytania ${qi + 1}`);
-        doc.setFillColor(220, 220, 220);
-        const colX = startX + firstColWidth + ci * otherColWidth;
-        doc.rect(colX, y, otherColWidth, rowHeight, "F");
-      }
+if (qData?.disabled) {
+  const colX = startX + firstColWidth + ci * otherColWidth;
+  const colY = y;
+  const width = otherColWidth;
+  const height = rowHeight;
+
+  // jasnoszare tło
+  doc.setFillColor(240, 240, 240);
+  doc.rect(colX, colY, width, height, "F");
+
+  // hatch / prążki
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.5);
+  const step = 4; // odległość między paskami
+  for (let py = colY; py < colY + height; py += step) {
+    doc.line(colX, py, colX + width, py); // poziome linie
+  }
+
+  // ramka komórki
+  doc.setDrawColor(180, 180, 180);
+  doc.rect(colX, colY, width, height);
+}
+
 
       let ansSymbol = "";
       if (qData?.answer === true) ansSymbol = "V";
