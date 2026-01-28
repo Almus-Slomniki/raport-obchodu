@@ -3,9 +3,18 @@ import font from "../fonts/Roboto-Regular-normal";
 import { generateSummaryTable } from "./generateSummaryTable";
 import { generateQuestionsSection } from "./generateQuestionsSection";
 
+/**
+ * Generuje PDF z audytu
+ * @param questions - pytania audytu
+ * @param imagesState - obrazy przypisane do pytań
+ * @param auditNumber - numer audytu
+ * @param auditorName - imię audytora
+ * @param leaderName - imię lidera
+ */
 export const generatePDF = async (
   questions: any,
   imagesState: any,
+  auditNumber?: number,      // numer audytu
   auditorName?: string,
   leaderName?: string,
 ) => {
@@ -16,35 +25,31 @@ export const generatePDF = async (
   doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
   doc.setFont("Roboto");
 
-  // // Nagłówek z audytorem i liderem
-  // doc.setFontSize(14);
-  // doc.text(`Audytor: ${auditorName || "-"}`, 10, 10);
-  // doc.text(`Lider: ${leaderName || "-"}`, 10, 18);
+  // --- Generujemy tabelę podsumowującą, teraz z numerem audytu ---
+  const startY = generateSummaryTable(doc, questions, auditorName, leaderName, auditNumber);
 
-  // Generujemy tabelę podsumowującą
-  const startY = generateSummaryTable(doc, questions, auditorName, leaderName);
-
-  // Wygenerowanie sekcji pytań z obrazkami
+  // --- Sekcja pytań z obrazkami ---
   await generateQuestionsSection(doc, questions, imagesState, startY);
 
-  // Przykład wyciemnienia w tabeli podsumowującej, jeśli pytanie disabled
+  // --- Jasnoszare wiersze dla pytań disabled ---
   let currentY = startY;
   const rowHeight = 10;
-
   Object.keys(questions).forEach(cat => {
     questions[cat].forEach((q: any) => {
       if (q.disabled) {
-        // Jasnoszare tło dla wyłączonej linii
-        doc.setFillColor(220, 220, 220); // poprawne RGB
+        doc.setFillColor(220, 220, 220);
         doc.rect(10, currentY, 270, rowHeight, "F");
       }
-      doc.setTextColor(0, 0, 0); // czarny tekst
-      doc.text(`${cat}: ${q.text}`, 12, currentY + 7); // trochę paddingu w wierszu
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${cat}: ${q.text}`, 12, currentY + 7);
       currentY += rowHeight;
     });
   });
 
-  // Nazwa pliku z aktualną datą
-  const fileName = `Zagadnienia-Krytyczne-${new Date().toISOString().slice(0, 10)}.pdf`;
+  // --- Nazwa pliku PDF z numerem audytu ---
+  const now = new Date();
+  const dateString = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+  const fileName = `Zagadnienia-Krytyczne-${auditNumber ?? "XXX"}-${dateString}.pdf`;
+
   doc.save(fileName);
 };

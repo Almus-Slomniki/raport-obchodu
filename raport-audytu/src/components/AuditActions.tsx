@@ -105,7 +105,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
         {/* PDF krytyczne */}
         <button
           className="audit-button btn-critical"
-          onClick={() => generatePDF(questions, imagesState, auditorName, leaderName)}
+          onClick={() => generatePDF(questions, imagesState, auditId, auditorName, leaderName)}
         >
           Generuj krytyczne
         </button>
