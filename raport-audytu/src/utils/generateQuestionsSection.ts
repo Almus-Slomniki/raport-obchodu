@@ -14,9 +14,8 @@ export const generateQuestionsSection = async (
   const imageSpacing = 5;
   const maxImgWidth = columnWidth * 0.95;
   const maxImgHeight = 80;
-  const headerHeight = 16;
 
-  let yPos = startY;
+  let yPos = startY || margin;
 
   const loadImage = (src: string) =>
     new Promise<HTMLImageElement>((resolve, reject) => {
@@ -44,33 +43,98 @@ export const generateQuestionsSection = async (
     });
 
   for (const cat of categories) {
-    doc.setFontSize(16);
-    doc.setTextColor(20, 60, 120);
-
     const catQuestions = questions[cat] || initialQuestions.map(q => ({ ...q }));
     if (catQuestions.length === 0) continue;
 
-    // --- Nagłówek kategorii ---
-    if (yPos + headerHeight > pageHeight - margin) {
+    // --- Pierwsze pytanie ---
+    const firstQuestion = catQuestions[0];
+
+    // --- Obliczamy wysokość całego bloku (nagłówek + pytanie + notatka + zdjęcia) ---
+    let firstBlockHeight = 0;
+
+    const headerLines = doc.splitTextToSize(`Linia: ${cat}`, columnWidth);
+    firstBlockHeight += headerLines.length * 6 + 2;
+
+    const questionLines = doc.splitTextToSize(firstQuestion.text, columnWidth);
+    firstBlockHeight += questionLines.length * 6 + 2;
+
+    if (firstQuestion.note && firstQuestion.note.trim() !== "") {
+      const noteLines = doc.splitTextToSize(`Uwaga: ${firstQuestion.note}`, columnWidth);
+      firstBlockHeight += noteLines.length * 5 + 2;
+    }
+
+    const firstImages = imagesState[cat]?.[firstQuestion.id] || [];
+    for (const imgSrc of firstImages) {
+      try {
+        const img = await loadImage(await imageToBase64(imgSrc));
+        const imgW = img.width * 0.264583;
+        const imgH = img.height * 0.264583;
+        const scale = Math.min(maxImgWidth / imgW, maxImgHeight / imgH, 1);
+        firstBlockHeight += imgH * scale + imageSpacing;
+      } catch {}
+    }
+
+    // --- Dodaj nową stronę jeśli potrzeba ---
+    if (yPos + firstBlockHeight > pageHeight - margin) {
       doc.addPage();
       yPos = margin;
     }
-    doc.text(`Linia: ${cat}`, margin, yPos);
-    yPos += headerHeight;
 
-    for (const q of catQuestions) {
-      const qImages = imagesState[cat]?.[q.id] || [];
+    // --- Nagłówek linii ---
+    doc.setFontSize(14);
+    doc.setTextColor(20, 60, 120);
+    doc.text(headerLines, margin, yPos);
+    yPos += headerLines.length * 6 + 2;
 
-      // --- Obliczamy wysokość całego bloku pytania + komentarza + zdjęć ---
+    // --- Pierwsze pytanie ---
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(questionLines, margin, yPos);
+    yPos += questionLines.length * 6 + 2;
+
+    // --- Komentarz pierwszego pytania ---
+    if (firstQuestion.note && firstQuestion.note.trim() !== "") {
+      const noteLines = doc.splitTextToSize(`Uwaga: ${firstQuestion.note}`, columnWidth);
+      doc.setTextColor(100, 100, 100);
+      doc.text(noteLines, margin, yPos);
+      yPos += noteLines.length * 5 + 2;
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // --- Zdjęcia pierwszego pytania ---
+    for (const imgSrc of firstImages) {
+      try {
+        const base64 = await imageToBase64(imgSrc);
+        const img = await loadImage(base64);
+        let imgW = img.width * 0.264583;
+        let imgH = img.height * 0.264583;
+        const scale = Math.min(maxImgWidth / imgW, maxImgHeight / imgH, 1);
+        imgW *= scale;
+        imgH *= scale;
+
+        if (yPos + imgH > pageHeight - margin) {
+          doc.addPage();
+          yPos = margin;
+        }
+        doc.addImage(base64, "JPEG", margin, yPos, imgW, imgH);
+        yPos += imgH + imageSpacing;
+      } catch {}
+    }
+
+    yPos += 4;
+
+    // --- Pozostałe pytania ---
+    for (let i = 1; i < catQuestions.length; i++) {
+      const q = catQuestions[i];
       const qLines = doc.splitTextToSize(`• ${q.text}`, columnWidth);
-      let blockHeight = qLines.length * 7 + 2;
+      let blockHeight = qLines.length * 6 + 2;
 
       if (q.note && q.note.trim() !== "") {
         const noteLines = doc.splitTextToSize(`Uwaga: ${q.note}`, columnWidth);
-        blockHeight += noteLines.length * 7 + 2;
+        blockHeight += noteLines.length * 5 + 2;
       }
 
-      // Dodajemy wysokość wszystkich zdjęć
+      const qImages = imagesState[cat]?.[q.id] || [];
       for (const imgSrc of qImages) {
         try {
           const img = await loadImage(await imageToBase64(imgSrc));
@@ -80,30 +144,26 @@ export const generateQuestionsSection = async (
           blockHeight += imgH * scale + imageSpacing;
         } catch {}
       }
-      blockHeight += 5; // mała przerwa pod pytaniem
+      blockHeight += 4;
 
-      // --- Sprawdzamy czy blok mieści się na stronie ---
       if (yPos + blockHeight > pageHeight - margin) {
         doc.addPage();
         yPos = margin;
       }
 
-      // --- Rysujemy pytanie ---
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
       doc.text(qLines, margin, yPos);
-      yPos += qLines.length * 7 + 2;
+      yPos += qLines.length * 6 + 2;
 
-      // --- Rysujemy komentarz ---
       if (q.note && q.note.trim() !== "") {
         const noteLines = doc.splitTextToSize(`Uwaga: ${q.note}`, columnWidth);
         doc.setTextColor(100, 100, 100);
         doc.text(noteLines, margin, yPos);
-        yPos += noteLines.length * 7 + 2;
+        yPos += noteLines.length * 5 + 2;
         doc.setTextColor(0, 0, 0);
       }
 
-      // --- Rysujemy wszystkie zdjęcia ---
       for (const imgSrc of qImages) {
         try {
           const base64 = await imageToBase64(imgSrc);
@@ -123,11 +183,12 @@ export const generateQuestionsSection = async (
         } catch {}
       }
 
-      // --- Mała przerwa między pytaniami ---
-      yPos += 5;
+      yPos += 4;
     }
 
-    // --- Przerwa po kategorii ---
-    yPos += 10;
+    // --- Mała przerwa po kategorii tylko jeśli nie jest ostatnia ---
+    if (cat !== categories[categories.length - 1]) yPos += 8;
   }
+
+  return yPos;
 };

@@ -4,7 +4,6 @@ import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
 import { loadAuditData, saveAnswer, uploadImage, setCategoryDisabled } from "../supabaseAudit";
 import { AuditActions } from "./AuditActions";
 import { supabase } from "../supabaseClient";
-import { AdminPanel } from "./AdminPanel";
 import { NonCriticalEntries } from "./Noncriticalentries";
 import { AuditLoader } from "./AuditLoader";
 import { AuditTabs } from "./AuditTabs";
@@ -70,6 +69,7 @@ export const AuditForm: React.FC = () => {
         categories.forEach(cat => {
           const isCategoryDisabled = loadedQuestions[cat]?.some(q => q.disabled) ?? false;
 
+          // --- przygotowanie pytań
           qState[cat] = initialQuestions.map((q, i) => {
             const qid = String(i + 1);
             const loaded = loadedQuestions[cat]?.find(lq => lq.id === qid);
@@ -81,16 +81,22 @@ export const AuditForm: React.FC = () => {
               note: loaded?.note ?? "",
               images: loaded?.images ?? [],
               disabled: isCategoryDisabled,
-              category_comment: loaded?.category_comment ?? "", // 🔴 WAŻNE: komentarz w stanie
+              category_comment: loaded?.category_comment ?? "",
             };
           });
 
-          iState[cat] = loadedImages[cat] || {};
+          // --- przygotowanie imagesState (klucze jako string)
+          iState[cat] = {};
+          const catImages = loadedImages[cat] || {};
+          Object.entries(catImages).forEach(([qId, imgs]) => {
+            iState[cat][qId.toString()] = imgs as string[];
+          });
         });
 
         setQuestions(qState);
         setImagesState(iState);
 
+        // --- meta info o audycie
         const { data: meta } = await supabase
           .from("audit_answers")
           .select("auditor_name, leader_name, is_finished")
@@ -102,6 +108,7 @@ export const AuditForm: React.FC = () => {
         if (meta?.leader_name) setLeaderName(meta.leader_name);
         setIsFinished(meta?.is_finished ?? false);
 
+        // --- non critical entries
         const { data: entries } = await supabase
           .from("non_critical_entries")
           .select("*")
@@ -143,6 +150,7 @@ export const AuditForm: React.FC = () => {
     });
   };
 
+  /* ------------------ ADD IMAGE ------------------ */
   const addImageFn = async (cat: string, id: string, files: FileList) => {
     if (!auditId || isFinished || isCategoryDisabled(cat)) return;
 
@@ -151,12 +159,22 @@ export const AuditForm: React.FC = () => {
       urls.push(await uploadImage(auditId, cat, id, files[i]));
     }
 
+    // --- aktualizacja stanu pytań
     setQuestions(prev => {
       const updated = prev[cat].map(q => q.id === id ? { ...q, images: [...q.images, ...urls] } : q);
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
     });
+
+    // --- synchronizacja imagesState
+    setImagesState(prev => ({
+      ...prev,
+      [cat]: {
+        ...prev[cat],
+        [id]: [...(prev[cat]?.[id] || []), ...urls]
+      }
+    }));
   };
 
   /* ------------------ TOGGLE CATEGORY ------------------ */
@@ -183,7 +201,7 @@ export const AuditForm: React.FC = () => {
       [cat]: prev[cat].map(q => ({
         ...q,
         disabled: nextDisabled,
-        category_comment: nextDisabled ? comment : "", // 🔴 komentarz trafia do stanu
+        category_comment: nextDisabled ? comment : "",
       })),
     }));
   };
