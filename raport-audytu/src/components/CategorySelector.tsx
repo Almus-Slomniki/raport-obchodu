@@ -5,8 +5,8 @@ interface CategorySelectorProps {
   activeCategory: string;
   setActiveCategory: (cat: string) => void;
   isCategoryComplete: (cat: string) => boolean;
-  disabledCategories: string[]; // lista z AuditForm
-  onToggleCategory: (cat: string) => void; // callback do zapisu w Supabase
+  disabledCategories: string[];
+  onToggleCategory: (cat: string) => void;
 }
 
 export const CategorySelector: React.FC<CategorySelectorProps> = ({
@@ -45,26 +45,21 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
                 fontWeight: active ? "bold" : "normal",
                 cursor: disabled ? "not-allowed" : "pointer",
                 color: disabled ? "#999" : "black",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
               }}
             >
-              <span>{cat}</span>
+              {cat}
             </button>
+
+            {/* LINK POD PRZYCISKIEM */}
             <span
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleCategory(cat); // zapis w Supabase
-              }}
+              onClick={() => onToggleCategory(cat)}
               style={{
                 marginTop: 4,
                 fontSize: 10,
                 color: "#666",
                 textDecoration: "underline",
                 cursor: "pointer",
-                fontWeight: "normal",
+                textAlign: "center",
               }}
             >
               {disabled ? "Włącz linię do obchodu" : "Wyłącz linię z obchodu"}

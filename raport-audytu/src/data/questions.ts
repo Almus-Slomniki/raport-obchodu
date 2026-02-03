@@ -7,6 +7,7 @@ export interface Question {
   note?: string;
   images: string[];
   disabled?: boolean;
+   category_comment?: string;
   description?: string; // <-- dodajemy, bo była w initialQuestions
 }
 

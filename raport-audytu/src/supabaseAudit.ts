@@ -62,6 +62,8 @@ console.log("eoeoe",questions)
       note: row.note ?? '',
       images: parsedImages,
       disabled: row.disabled ?? false,
+        category_comment: row.category_comment ?? "", // 🔴 DODANE
+
     };
 
     questions[row.category].push(questionObj);
@@ -261,24 +263,26 @@ export const deleteNonCriticalEntry = async (id: number): Promise<boolean> => {
 export const setCategoryDisabled = async (
   auditId: number,
   category: string,
-  disabled: boolean
-): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from("audit_answers")
-      .update({ disabled })
-      .eq("audit_id", auditId)
-      .eq("category", category);
+  disabled: boolean,
+  comment: string | null
+) => {
+  const { error } = await supabase
+    .from("audit_answers")
+    .update({
+      disabled,
+      category_comment: disabled ? comment : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("audit_id", auditId)
+    .eq("category", category);
 
-    if (error) {
-      console.error("❌ setCategoryDisabled error:", error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("❌ setCategoryDisabled exception:", err);
+  if (error) {
+    console.error("Błąd zapisu kategorii:", error);
     return false;
   }
+
+  return true;
 };
+
 
 export { supabase };

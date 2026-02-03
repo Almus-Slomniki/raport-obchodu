@@ -51,7 +51,6 @@ export const AuditForm: React.FC = () => {
     if (c && categories.includes(c)) setActiveCategory(c);
     if (t === "Krytyczne" || t === "Niekrytyczne") setActiveTab(t);
   }, []);
-
   useEffect(() => localStorage.setItem("lastActiveCategory", activeCategory), [activeCategory]);
   useEffect(() => localStorage.setItem("lastActiveTab", activeTab), [activeTab]);
 
@@ -69,8 +68,7 @@ export const AuditForm: React.FC = () => {
         const iState: ImagesState = {};
 
         categories.forEach(cat => {
-          const isCategoryDisabled =
-            loadedQuestions[cat]?.some(q => q.disabled) ?? false;
+          const isCategoryDisabled = loadedQuestions[cat]?.some(q => q.disabled) ?? false;
 
           qState[cat] = initialQuestions.map((q, i) => {
             const qid = String(i + 1);
@@ -79,13 +77,11 @@ export const AuditForm: React.FC = () => {
             return {
               ...q,
               id: qid,
-              answer:
-                loaded?.answer === true || loaded?.answer === false
-                  ? loaded.answer
-                  : undefined,
+              answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
               note: loaded?.note ?? "",
               images: loaded?.images ?? [],
-              disabled: isCategoryDisabled, // 🔥 JEDNO ŹRÓDŁO PRAWDY
+              disabled: isCategoryDisabled,
+              category_comment: loaded?.category_comment ?? "", // 🔴 WAŻNE: komentarz w stanie
             };
           });
 
@@ -122,17 +118,14 @@ export const AuditForm: React.FC = () => {
   }, [auditId, auditorName]);
 
   /* ------------------ HELPERS ------------------ */
-  const isCategoryDisabled = (cat: string) =>
-    questions[cat]?.[0]?.disabled === true;
+  const isCategoryDisabled = (cat: string) => questions[cat]?.[0]?.disabled === true;
 
   /* ------------------ ANSWERS ------------------ */
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
     if (isFinished || !auditId || isCategoryDisabled(cat)) return;
 
     setQuestions(prev => {
-      const updated = prev[cat].map(q =>
-        q.id === id ? { ...q, answer: value } : q
-      );
+      const updated = prev[cat].map(q => q.id === id ? { ...q, answer: value } : q);
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
@@ -143,9 +136,7 @@ export const AuditForm: React.FC = () => {
     if (isFinished || !auditId || isCategoryDisabled(cat)) return;
 
     setQuestions(prev => {
-      const updated = prev[cat].map(q =>
-        q.id === id ? { ...q, note } : q
-      );
+      const updated = prev[cat].map(q => q.id === id ? { ...q, note } : q);
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
@@ -161,9 +152,7 @@ export const AuditForm: React.FC = () => {
     }
 
     setQuestions(prev => {
-      const updated = prev[cat].map(q =>
-        q.id === id ? { ...q, images: [...q.images, ...urls] } : q
-      );
+      const updated = prev[cat].map(q => q.id === id ? { ...q, images: [...q.images, ...urls] } : q);
       const q = updated.find(x => x.id === id);
       if (q) saveAnswer(auditId, cat, q);
       return { ...prev, [cat]: updated };
@@ -173,14 +162,29 @@ export const AuditForm: React.FC = () => {
   /* ------------------ TOGGLE CATEGORY ------------------ */
   const handleToggleCategory = async (cat: string) => {
     if (!auditId || isFinished) return;
-    const next = !isCategoryDisabled(cat);
 
-    const ok = await setCategoryDisabled(auditId, cat, next);
+    const currentlyDisabled = isCategoryDisabled(cat);
+    const nextDisabled = !currentlyDisabled;
+
+    let comment = "";
+    if (nextDisabled) {
+      comment = prompt("Podaj powód wyłączenia kategorii:")?.trim() || "";
+      if (!comment) {
+        alert("Komentarz jest wymagany przy wyłączaniu kategorii!");
+        return;
+      }
+    }
+
+    const ok = await setCategoryDisabled(auditId, cat, nextDisabled, comment ?? null);
     if (!ok) return;
 
     setQuestions(prev => ({
       ...prev,
-      [cat]: prev[cat].map(q => ({ ...q, disabled: next }))
+      [cat]: prev[cat].map(q => ({
+        ...q,
+        disabled: nextDisabled,
+        category_comment: nextDisabled ? comment : "", // 🔴 komentarz trafia do stanu
+      })),
     }));
   };
 
@@ -205,6 +209,7 @@ export const AuditForm: React.FC = () => {
           note: "",
           images: [],
           disabled: false,
+          category_comment: null,
           is_finished: false,
           auditor_name: auditorName,
           leader_name: leaderName,
@@ -234,32 +239,16 @@ export const AuditForm: React.FC = () => {
 
   if (!auditId) {
     return (
-    <div className="start-wrapper">
-  <div className="start-section">
-    <h3>Audyt / Obchód</h3>
-
-    <button
-      className="start-button"
-      onClick={() => setStartingAudit(true)}
-    >
-      Rozpocznij nowy obchód
-    </button>
-
-    <div className="load-section">
-      <input
-        type="number"
-        placeholder="ID audytu"
-        value={inputAuditId}
-        onChange={e => setInputAuditId(e.target.value)}
-      />
-
-      <button onClick={() => setAuditId(Number(inputAuditId))}>
-        Wczytaj istniejący
-      </button>
-    </div>
-  </div>
-</div>
-
+      <div className="start-wrapper">
+        <div className="start-section">
+          <h3>Audyt / Obchód</h3>
+          <button className="start-button" onClick={() => setStartingAudit(true)}>Rozpocznij nowy obchód</button>
+          <div className="load-section">
+            <input type="number" placeholder="ID audytu" value={inputAuditId} onChange={e => setInputAuditId(e.target.value)} />
+            <button onClick={() => setAuditId(Number(inputAuditId))}>Wczytaj istniejący</button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -282,9 +271,7 @@ export const AuditForm: React.FC = () => {
         setActiveCategory={setActiveCategory}
         disabledCategories={categories.filter(isCategoryDisabled)}
         onToggleCategory={handleToggleCategory}
-        isCategoryComplete={cat =>
-          questions[cat]?.every(q => q.answer === true || q.answer === false)
-        }
+        isCategoryComplete={cat => questions[cat]?.every(q => q.answer === true || q.answer === false)}
       />
 
       <AuditTabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -299,8 +286,8 @@ export const AuditForm: React.FC = () => {
           setAnswerFn={setAnswerFn}
           updateNoteFn={updateNoteFn}
           addImageFn={addImageFn}
-            setQuestions={setQuestions} 
-            setImagesState={setImagesState} 
+          setQuestions={setQuestions} 
+          setImagesState={setImagesState} 
         />
       )}
 
