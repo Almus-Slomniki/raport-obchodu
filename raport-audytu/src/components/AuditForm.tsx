@@ -19,6 +19,9 @@ export const AuditForm: React.FC = () => {
     "Piotr Nowak",
     "Barbara Zelek",
     "Maria Górowska",
+    "Karolina Balec",
+    "Mateusz Kosak",
+    "Hubert Golonka"
   ];
 
   const [auditId, setAuditId] = useState<number | null>(null);
