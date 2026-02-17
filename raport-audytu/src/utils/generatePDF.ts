@@ -14,42 +14,44 @@ import { generateQuestionsSection } from "./generateQuestionsSection";
 export const generatePDF = async (
   questions: any,
   imagesState: any,
-  auditNumber?: number,      // numer audytu
+  auditNumber?: number,
   auditorName?: string,
   leaderName?: string,
 ) => {
   const doc = new jsPDF("l", "mm", "a4");
 
-  // Dodajemy font
+  // --- Dodajemy font Roboto ---
   doc.addFileToVFS("Roboto-Regular.ttf", font);
   doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
   doc.setFont("Roboto");
 
-  // --- Generujemy tabelę podsumowującą, teraz z numerem audytu ---
+  // --- Generujemy tabelę podsumowującą i pobieramy startY ---
   const startY = generateSummaryTable(doc, questions, auditorName, leaderName, auditNumber);
 
   // --- Sekcja pytań z obrazkami ---
-  await generateQuestionsSection(doc, questions, imagesState, startY);
+  const lastY = await generateQuestionsSection(doc, questions, imagesState, startY);
 
-  // --- Jasnoszare wiersze dla pytań disabled ---
-  let currentY = startY;
-  const rowHeight = 10;
-  Object.keys(questions).forEach(cat => {
-    questions[cat].forEach((q: any) => {
-      if (q.disabled) {
-        doc.setFillColor(220, 220, 220);
-        doc.rect(10, currentY, 270, rowHeight, "F");
-      }
-      doc.setTextColor(0, 0, 0);
-      doc.text(`${cat}: ${q.text}`, 12, currentY + 7);
-      currentY += rowHeight;
+  // --- Jasnoszare tło dla pytań disabled (bez tekstu) ---
+  if (questions && typeof questions === "object") {
+    const rowHeight = 10;
+    let currentY = startY;
+
+    Object.keys(questions).forEach(cat => {
+      questions[cat].forEach((q: any) => {
+        if (q.disabled) {
+          doc.setFillColor(220, 220, 220);
+          doc.rect(10, currentY, doc.internal.pageSize.getWidth() - 20, rowHeight, "F");
+        }
+        currentY += rowHeight;
+      });
     });
-  });
+  }
 
-  // --- Nazwa pliku PDF z numerem audytu ---
+  // --- Nazwa pliku PDF z numerem audytu i datą ---
   const now = new Date();
   const dateString = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
   const fileName = `Zagadnienia-Krytyczne-${auditNumber ?? "XXX"}-${dateString}.pdf`;
 
+  // --- Zapis PDF ---
   doc.save(fileName);
 };
