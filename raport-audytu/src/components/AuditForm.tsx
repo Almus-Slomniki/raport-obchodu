@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { categories, initialQuestions, Question } from "../data/questions";
+import { categories, initialQuestions } from "../data/questions";
 import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
 import { loadAuditData, saveAnswer, uploadImage, setCategoryDisabled } from "../supabaseAudit";
 import { AuditActions } from "./AuditActions";
@@ -13,21 +13,21 @@ import "./AuditForm.css";
 
 export const AuditForm: React.FC = () => {
   const fixedLeadersList = [
-    "Ilona Hardyn",
-    "Anna Dobrzanowska",
-    "Agata Kutela",
-    "Piotr Nowak",
-    "Barbara Zelek",
-    "Maria Górowska",
-    "Karolina Balec",
-    "Mateusz Kosak",
-    "Hubert Golonka",
-    "Patrycja Kuśpiel"
+    "Ilona Hardyn", "Anna Dobrzanowska", "Agata Kutela", "Piotr Nowak",
+    "Barbara Zelek", "Maria Górowska", "Karolina Balec", "Mateusz Kosak",
+    "Hubert Golonka", "Patrycja Kuśpiel"
   ];
 
-  const [auditId, setAuditId] = useState<number | null>(null);
+  /* ------------------ STANY ------------------ */
+  const [auditId, setAuditId] = useState<number | null>(() => {
+    const storedId = localStorage.getItem("currentAuditId");
+    return storedId ? Number(storedId) : null;
+  });
   const [inputAuditId, setInputAuditId] = useState("");
-  const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">("Krytyczne");
+  const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">(() => {
+    const t = localStorage.getItem("lastActiveTab");
+    return t === "Krytyczne" || t === "Niekrytyczne" ? t : "Krytyczne";
+  });
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]);
   const [questions, setQuestions] = useState<QuestionsState>({});
   const [imagesState, setImagesState] = useState<ImagesState>({});
@@ -47,20 +47,15 @@ export const AuditForm: React.FC = () => {
     });
   }, []);
 
-  /* ------------------ LOCAL STORAGE ------------------ */
-  useEffect(() => {
-    const c = localStorage.getItem("lastActiveCategory");
-    const t = localStorage.getItem("lastActiveTab");
-    if (c && categories.includes(c)) setActiveCategory(c);
-    if (t === "Krytyczne" || t === "Niekrytyczne") setActiveTab(t);
-  }, []);
-  useEffect(() => localStorage.setItem("lastActiveCategory", activeCategory), [activeCategory]);
+  /* ------------------ ZAPIS TAB ------------------ */
   useEffect(() => localStorage.setItem("lastActiveTab", activeTab), [activeTab]);
 
   /* ------------------ LOAD AUDIT ------------------ */
   useEffect(() => {
     if (!auditId) return;
     if (auditId === 999 && auditorName.toLowerCase() === "admin") return;
+
+    localStorage.setItem("currentAuditId", String(auditId)); // zapis audytu
 
     const load = async () => {
       setLoading(true);
@@ -73,7 +68,6 @@ export const AuditForm: React.FC = () => {
         categories.forEach(cat => {
           const isCategoryDisabled = loadedQuestions[cat]?.some(q => q.disabled) ?? false;
 
-          // --- przygotowanie pytań
           qState[cat] = initialQuestions.map((q, i) => {
             const qid = String(i + 1);
             const loaded = loadedQuestions[cat]?.find(lq => lq.id === qid);
@@ -89,7 +83,6 @@ export const AuditForm: React.FC = () => {
             };
           });
 
-          // --- przygotowanie imagesState (klucze jako string)
           iState[cat] = {};
           const catImages = loadedImages[cat] || {};
           Object.entries(catImages).forEach(([qId, imgs]) => {
@@ -100,7 +93,6 @@ export const AuditForm: React.FC = () => {
         setQuestions(qState);
         setImagesState(iState);
 
-        // --- meta info o audycie
         const { data: meta } = await supabase
           .from("audit_answers")
           .select("auditor_name, leader_name, is_finished")
@@ -112,7 +104,6 @@ export const AuditForm: React.FC = () => {
         if (meta?.leader_name) setLeaderName(meta.leader_name);
         setIsFinished(meta?.is_finished ?? false);
 
-        // --- non critical entries
         const { data: entries } = await supabase
           .from("non_critical_entries")
           .select("*")
@@ -128,13 +119,29 @@ export const AuditForm: React.FC = () => {
     load();
   }, [auditId, auditorName]);
 
+  /* ------------------ USTAW AKTYWNĄ KATEGORIĘ PO ZAŁADOWANIU PYTAŃ ------------------ */
+  useEffect(() => {
+    if (!auditId || Object.keys(questions).length === 0) return;
+
+    const savedCategory = localStorage.getItem(`lastActiveCategory_${auditId}`);
+    if (savedCategory && categories.includes(savedCategory)) {
+      setActiveCategory(savedCategory);
+    } else {
+      setActiveCategory(categories[0]);
+    }
+  }, [auditId, questions]);
+
+  /* ------------------ ZAPIS KATEGORII ------------------ */
+  useEffect(() => {
+    if (!auditId) return;
+    localStorage.setItem(`lastActiveCategory_${auditId}`, activeCategory);
+  }, [activeCategory, auditId]);
+
   /* ------------------ HELPERS ------------------ */
   const isCategoryDisabled = (cat: string) => questions[cat]?.[0]?.disabled === true;
 
-  /* ------------------ ANSWERS ------------------ */
   const setAnswerFn = (cat: string, id: string, value: boolean | undefined) => {
     if (isFinished || !auditId || isCategoryDisabled(cat)) return;
-
     setQuestions(prev => {
       const updated = prev[cat].map(q => q.id === id ? { ...q, answer: value } : q);
       const q = updated.find(x => x.id === id);
@@ -145,7 +152,6 @@ export const AuditForm: React.FC = () => {
 
   const updateNoteFn = (cat: string, id: string, note: string) => {
     if (isFinished || !auditId || isCategoryDisabled(cat)) return;
-
     setQuestions(prev => {
       const updated = prev[cat].map(q => q.id === id ? { ...q, note } : q);
       const q = updated.find(x => x.id === id);
@@ -154,7 +160,6 @@ export const AuditForm: React.FC = () => {
     });
   };
 
-  /* ------------------ ADD IMAGE ------------------ */
   const addImageFn = async (cat: string, id: string, files: FileList) => {
     if (!auditId || isFinished || isCategoryDisabled(cat)) return;
 
@@ -163,7 +168,6 @@ export const AuditForm: React.FC = () => {
       urls.push(await uploadImage(auditId, cat, id, files[i]));
     }
 
-    // --- aktualizacja stanu pytań
     setQuestions(prev => {
       const updated = prev[cat].map(q => q.id === id ? { ...q, images: [...q.images, ...urls] } : q);
       const q = updated.find(x => x.id === id);
@@ -171,7 +175,6 @@ export const AuditForm: React.FC = () => {
       return { ...prev, [cat]: updated };
     });
 
-    // --- synchronizacja imagesState
     setImagesState(prev => ({
       ...prev,
       [cat]: {
@@ -181,7 +184,6 @@ export const AuditForm: React.FC = () => {
     }));
   };
 
-  /* ------------------ TOGGLE CATEGORY ------------------ */
   const handleToggleCategory = async (cat: string) => {
     if (!auditId || isFinished) return;
 
@@ -210,7 +212,6 @@ export const AuditForm: React.FC = () => {
     }));
   };
 
-  /* ------------------ START AUDIT ------------------ */
   const handleAuditSubmit = async () => {
     if (!leaderName.trim()) return;
 
@@ -218,6 +219,7 @@ export const AuditForm: React.FC = () => {
     const { data } = await supabase.rpc("get_next_audit_id");
     const id = Number(data);
     setAuditId(id);
+    localStorage.setItem("currentAuditId", String(id));
 
     const now = new Date().toISOString();
     for (const cat of categories) {
@@ -266,8 +268,21 @@ export const AuditForm: React.FC = () => {
           <h3>Audyt / Obchód</h3>
           <button className="start-button" onClick={() => setStartingAudit(true)}>Rozpocznij nowy obchód</button>
           <div className="load-section">
-            <input type="number" placeholder="ID audytu" value={inputAuditId} onChange={e => setInputAuditId(e.target.value)} />
-            <button onClick={() => setAuditId(Number(inputAuditId))}>Wczytaj istniejący</button>
+            <input
+              type="number"
+              placeholder="ID audytu"
+              value={inputAuditId}
+              onChange={e => setInputAuditId(e.target.value)}
+            />
+            <button
+              onClick={() => {
+                const id = Number(inputAuditId);
+                setAuditId(id);
+                localStorage.setItem("currentAuditId", String(id));
+              }}
+            >
+              Wczytaj istniejący
+            </button>
           </div>
         </div>
       </div>
@@ -279,7 +294,10 @@ export const AuditForm: React.FC = () => {
       <AuditActions
         auditId={auditId}
         isFinished={isFinished}
-        onStartNewAudit={() => setAuditId(null)}
+        onStartNewAudit={() => {
+          setAuditId(null);
+          localStorage.removeItem("currentAuditId");
+        }}
         onFinishAudit={() => setIsFinished(true)}
         questions={questions}
         imagesState={imagesState}
@@ -308,8 +326,8 @@ export const AuditForm: React.FC = () => {
           setAnswerFn={setAnswerFn}
           updateNoteFn={updateNoteFn}
           addImageFn={addImageFn}
-          setQuestions={setQuestions} 
-          setImagesState={setImagesState} 
+          setQuestions={setQuestions}
+          setImagesState={setImagesState}
         />
       )}
 
