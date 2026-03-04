@@ -12,7 +12,7 @@ export const generateSummaryTable = (
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 4;
 
-  let y = 6;
+  let y = 20;
   const baseRowHeight = 12; // zmniejszone z 16
   const startX = margin;
 
@@ -37,17 +37,17 @@ export const generateSummaryTable = (
   doc.setFont("Roboto", "normal");
   doc.text("V = zgodność  X = niezgodność", startX + 230, y - 14);
 
-  const legendX = startX + 200;
-  const legendY = y - 8;
+  // const legendX = startX + 200;
+  // const legendY = y - 8;
 
-  doc.setFillColor(240, 240, 240);
-  doc.rect(legendX, legendY, 12, 8, "F");
-  doc.setDrawColor(200, 200, 200);
-  doc.line(legendX, legendY + 3, legendX + 12, legendY + 3);
-  doc.line(legendX, legendY + 6, legendX + 12, legendY + 6);
-  doc.setTextColor(0);
-  doc.text(" linia wyłączona z obchodu", legendX + 18, legendY + 6);
-  y -= 2;
+  // doc.setFillColor(240, 240, 240);
+  // doc.rect(legendX, legendY, 12, 8, "F");
+  // doc.setDrawColor(200, 200, 200);
+  // doc.line(legendX, legendY + 3, legendX + 12, legendY + 3);
+  // doc.line(legendX, legendY + 6, legendX + 12, legendY + 6);
+  // doc.setTextColor(0);
+  // doc.text(" linia wyłączona z obchodu", legendX + 18, legendY + 6);
+  // y -= 2;
 
   /* ================= TABELA ================= */
   const firstColWidth = 120;
