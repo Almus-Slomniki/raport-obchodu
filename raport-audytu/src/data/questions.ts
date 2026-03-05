@@ -22,7 +22,7 @@ export interface NonCriticalEntry {
 export const categories = ["CMG.2", "CMG.3", "LWN", "CMG.5", "CMG.6"];
 
 export const initialQuestions: Question[] = [
-  { id: "1", text: "Zaleganie kurzu i ścinek w pile", images: [], description: "Dodaj zdjęcie pod piłą oraz od góry piły. Przykłady niezgodności: widoczne ścinki z dnia poprzedniego (brudne, inny produkt itp.), posadzka zakryta ścinkami, nagromadzone ścinki poza taśmociągiem itp.)" },
+  { id: "1", text: "Zaleganie kurzu i ścinek w pile", images: [], description: "Dodaj zdjęcie pod piłą oraz od góry piły. (Przykłady niezgodności: widoczne ścinki z dnia poprzedniego (brudne, inny produkt itp.), posadzka zakryta ścinkami, nagromadzone ścinki poza taśmociągiem itp.)" },
   { id: "2", text: "Zapylenie maszyn produkcja", images: [], description: "(przykłady niezgodności: tygodniowe zapylenie maszyny, nadmierny pył zasłaniający maszynę itp.)" },
   { id: "3", text: "Zapylenie maszyn UR", images: [], description: "(przykłady niezgodności: zapylone wentylatory, silniki, centralki hydrauliczne, pył zasłaniający kratki itp.)" },
   { id: "4", text: "Nagromadzenie logów odpadowych w maszynie", images: [], description: "" },
