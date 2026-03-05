@@ -89,6 +89,7 @@ export const QuestionItem: React.FC<Props> = ({
                 margin: '2px 0 0 0',
                 color: '#666',
                 fontStyle: 'italic',
+                 whiteSpace: 'pre-line'
               }}
             >
               {q.description}
