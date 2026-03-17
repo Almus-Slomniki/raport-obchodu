@@ -65,7 +65,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             border: "1px solid #ccc",
             fontSize: 16,
             boxSizing: "border-box",
-            textAlign: "center",
+            textAlign: "left",
           }}
         />
 
