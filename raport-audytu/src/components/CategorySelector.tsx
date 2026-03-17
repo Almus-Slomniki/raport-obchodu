@@ -55,6 +55,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
               onClick={() => onToggleCategory(cat)}
               style={{
                 marginTop: 4,
+                height:"50px",
                 fontSize: 10,
                 color: "#666",
                 textDecoration: "underline",
