@@ -1,4 +1,3 @@
-// NonCriticalEntryForm.tsx
 import React, { useEffect, useState } from "react";
 import { NonCriticalEntry } from "../types";
 import { uploadNonCriticalImage } from "../../supabaseAudit";
@@ -54,7 +53,6 @@ type Category = keyof typeof checklistData;
 type ChecklistItem = { category: Category; text: string };
 
 const categories = Object.keys(checklistData) as Category[];
-
 const allChecklistItems: ChecklistItem[] = categories.flatMap(cat =>
   checklistData[cat].map(text => ({ category: cat, text }))
 );
@@ -71,10 +69,12 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
   onAdd
 }) => {
   const [openCategory, setOpenCategory] = useState<Category | null>(null);
-  const [name, setName] = useState("");
-  const [line, setLine] = useState(activeCategory);
+  const [name, setName] = useState(""); // treść uwagi
+  const [line, setLine] = useState(activeCategory); // aktualna kategoria lub "inne"
   const [images, setImages] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<ChecklistItem[]>([]);
+
+  const isCustom = line === "inne";
 
   useEffect(() => {
     setLine(activeCategory);
@@ -89,16 +89,13 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
 
   const handleNameChange = (value: string) => {
     setName(value);
-
     if (!value.trim()) {
       setSuggestions([]);
       return;
     }
-
     const filtered = allChecklistItems.filter(item =>
       item.text.toLowerCase().includes(value.toLowerCase())
     );
-
     setSuggestions(filtered.slice(0, 5));
   };
 
@@ -120,15 +117,17 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
 
     onAdd({
       name: name.trim(),
-      line,
+      line: isCustom ? "inne" : line,
       images,
       note: ""
     });
 
+    // reset
     setName("");
     setImages([]);
     setSuggestions([]);
     setOpenCategory(null);
+    setLine(activeCategory);
   };
 
   return (
@@ -136,7 +135,6 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
       {/* KATEGORIE + PODPUNKTY */}
       {categories.map((cat, catIndex) => {
         const catNumber = catIndex + 1;
-
         return (
           <div key={cat} style={{ marginBottom: 6 }}>
             <button
@@ -192,16 +190,16 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
         );
       })}
 
-      {/* INPUT + SUGESTIE */}
+      {/* INPUT TREŚCI UWAGI */}
       <div style={{ position: "relative", marginTop: 10 }}>
         <input
           value={name}
-          placeholder="Inne"
+          placeholder="Treść uwagi"
           onChange={e => handleNameChange(e.target.value)}
           style={{ width: "100%", padding: 8 }}
         />
 
-        {suggestions.length > 0 && (
+        {!isCustom && suggestions.length > 0 && (
           <ul
             style={{
               position: "absolute",
@@ -217,11 +215,8 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
             }}
           >
             {suggestions.map((s, i) => {
-              const catNumber =
-                categories.indexOf(s.category) + 1;
-              const itemNumber =
-                checklistData[s.category].indexOf(s.text) + 1;
-
+              const catNumber = categories.indexOf(s.category) + 1;
+              const itemNumber = checklistData[s.category].indexOf(s.text) + 1;
               return (
                 <li key={i}>
                   <button
@@ -248,43 +243,50 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
         )}
       </div>
 
-    {/* ZDJĘCIA + DODAJ */}
-<div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
- 
+      {/* SELECT DLA KATEGORII: tylko aktualna + "inne" */}
+      <select
+        value={line}
+        onChange={e => setLine(e.target.value)}
+        style={{ display: "block", marginTop: 10, marginBottom: 10, width: "100%", padding: 8 }}
+      >
+        <option value={line}>{line}</option>
+        {!isCustom && <option value="inne">➕ Inne</option>}
+      </select>
 
-  <div style={{ display: "flex", gap: 10 }}>
-    <label style={{ cursor: "pointer", fontSize: 24 }}>
-      📸
-       {images.length > 0 && (
-    <div style={{ fontStyle: "italic", color: "green" }}>
-      Dodano {images.length} {images.length === 1 ? "zdjęcie" : "zdjęcia"}
-    </div>
-  )}
-      <input
-        type="file"
-        multiple
-        accept="image/*"
-        capture="environment"
-        onChange={e => e.target.files && addImages(e.target.files)}
-        style={{ display: "none" }}
-      />
-    </label>
+      {/* ZDJĘCIA + PRZYCISK DODAJ */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+        <div style={{ display: "flex", gap: 10 }}>
+          <label style={{ cursor: "pointer", fontSize: 24 }}>
+            📸
+            {images.length > 0 && (
+              <div style={{ fontStyle: "italic", color: "green" }}>
+                Dodano {images.length} {images.length === 1 ? "zdjęcie" : "zdjęcia"}
+              </div>
+            )}
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              capture="environment"
+              onChange={e => e.target.files && addImages(e.target.files)}
+              style={{ display: "none" }}
+            />
+          </label>
 
-    <button
-      onClick={handleAddEntry}
-      style={{
-        padding: "10px 20px",
-        background: "#1464f4",
-        color: "white",
-        borderRadius: 6,
-        fontWeight: "bold"
-      }}
-    >
-      Dodaj
-    </button>
-  </div>
-</div>
-
+          <button
+            onClick={handleAddEntry}
+            style={{
+              padding: "10px 20px",
+              background: "#1464f4",
+              color: "white",
+              borderRadius: 6,
+              fontWeight: "bold"
+            }}
+          >
+            Dodaj
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
