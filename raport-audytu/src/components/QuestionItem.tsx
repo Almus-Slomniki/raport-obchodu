@@ -68,152 +68,206 @@ export const QuestionItem: React.FC<Props> = ({
   };
 
   return (
-    <div
-      style={{
-        marginBottom: 12,
-        padding: 10,
-        borderBottom: '1px solid #ccc',
-        borderRadius: 6,
-        backgroundColor: '#fafafa',
-      }}
-    >
-      {/* Górny wiersz: tekst pytania + przyciski + zdjęcia + notatka */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        {/* Tekst pytania */}
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>{q.text}</p>
-          {q.description && (
-            <p
-              style={{
-                fontSize: 12,
-                margin: '2px 0 0 0',
-                color: '#666',
-                fontStyle: 'italic',
-                 whiteSpace: 'pre-line'
-              }}
-            >
-              {q.description}
-            </p>
-          )}
-        </div>
-
-      {/* Kolumna przycisków TAK/NIE z nagłówkami */}
-<div style={{
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  flexShrink: 0,   // blokuje kurczenie kolumny
-  minWidth: 70,    // wystarczająca szerokość na nagłówki i przyciski
-}}>
-  <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 4 }}>
-    <span style={{ fontSize: 12, fontWeight: 500, width: 50, textAlign: 'center' }}>Zgodność</span>
-    <span style={{ fontSize: 12, fontWeight: 500, width: 50, textAlign: 'center' }}>Niezgodność</span>
+<div
+  style={{
+    marginBottom: 12,
+    padding: 10,
+    borderBottom: '1px solid #ccc',
+    borderRadius: 6,
+    backgroundColor: '#fafafa',
+  }}
+>
+  {/* Tekst pytania */}
+  <div style={{ width: '100%' }}>
+    <p style={{ fontSize: 14, margin: 0, fontWeight: 500 }}>{q.text}</p>
+    {q.description && (
+      <p
+        style={{
+          fontSize: 12,
+          margin: '2px 0 4px 0',
+          color: '#666',
+          fontStyle: 'italic',
+          whiteSpace: 'pre-line'
+        }}
+      >
+        {q.description}
+      </p>
+    )}
   </div>
 
-  <div style={{ display: 'flex', gap: 8 }}>
-    <button
-      onClick={() => handleToggleAnswer(true)}
-      disabled={isFinished}
+  {/* Linia przycisków TAK/NIE oraz opcje zdjęcia + notatka */}
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      maxWidth:"300px",
+      margin:"8px auto",
+      flexWrap: 'wrap',
+      gap: 8
+    }}
+  >
+    {/* TAK/NIE z nagłówkami */}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 500, width: 50, textAlign: 'center' }}>Zgodność</span>
+        <span style={{ fontSize: 12, fontWeight: 500, width: 50, textAlign: 'center' }}>Niezgodność</span>
+      </div>
+     <div style={{ display: 'flex', gap: 8 }}>
+  <button
+    onClick={() => handleToggleAnswer(true)}
+    disabled={isFinished}
+    style={{
+      width: 70,             // SZERSZY przycisk
+      height: 60,            // trochę wyższy
+      fontSize: 32,          // większa czcionka
+      fontWeight: 'bold',
+      color: '#28a745',
+      borderRadius: 6,
+      border: q.answer === true ? '2px solid #28a745' : '1px solid #28a745',
+      backgroundColor: q.answer === true ? '#c3e6cb' : '#f0f0f0',
+      cursor: isFinished ? 'not-allowed' : 'pointer',
+    }}
+    title="Zgodność"
+  >
+    V
+  </button>
+  <button
+    onClick={() => handleToggleAnswer(false)}
+    disabled={isFinished}
+    style={{
+      width: 70,             // SZERSZY przycisk
+      height: 60,            // trochę wyższy
+      fontSize: 32,          // większa czcionka
+      fontWeight: 'bold',
+      color: '#dc3545',
+      borderRadius: 6,
+      border: q.answer === false ? '2px solid #dc3545' : '1px solid #dc3545',
+      backgroundColor: q.answer === false ? '#f5c6cb' : '#f0f0f0',
+      cursor: isFinished ? 'not-allowed' : 'pointer',
+    }}
+    title="Niezgodność"
+  >
+    X
+  </button>
+</div>
+    </div>
+
+{/* Sekcja notatki + zdjęć */}
+<div
+  style={{
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'space-between', // góra: notatka, dół: liczba zdjęć
+    minHeight: 70, // dopasuj wysokość kolumny do przycisków TAK/NIE
+  }}
+>
+  {/* Góra: przycisk notatki */}
+{/* Góra: przycisk notatki z sygnalizatorem */}
+<div style={{ position: 'relative', marginBottom: 6 }}>
+  <button
+    onClick={() => setShowNote(prev => !prev)}
+    disabled={isFinished}
+    style={{
+      width: 35,
+      height: 35,
+      fontSize: 16,
+      borderRadius: 4,
+      border: '1px solid #ccc',
+      backgroundColor: showNote ? '#e0e0e0' : '#f0f0f0',
+      cursor: isFinished ? 'not-allowed' : 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+    title={showNote ? 'Ukryj notatkę' : 'Dodaj notatkę'}
+  >
+    ✏️
+  </button>
+
+  {/* Kółko sygnalizujące, że jest notatka */}
+  {q.note && q.note.trim() !== '' && (
+    <span
       style={{
-        padding: '6px 12px',
-        fontSize: 30,
-        fontWeight: 'bold',
-        color: '#28a745',
-        borderRadius: 5,
-        cursor: isFinished ? 'not-allowed' : 'pointer',
-        width: 50,
-        border: q.answer === true ? '2px solid #28a745' : '1px solid #28a745',
-        backgroundColor: q.answer === true ? '#c3e6cb' : '#f0f0f0',
-        boxShadow: q.answer === true ? '0 0 5px rgba(0,0,0,0.2)' : 'none',
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        width: 10,
+        height: 10,
+        borderRadius: '50%',
+        backgroundColor: '#007bff', // niebieskie kółko
+        border: '1px solid white', // opcjonalnie dla kontrastu
       }}
-    >
-      V
-    </button>
-    <button
-      onClick={() => handleToggleAnswer(false)}
-      disabled={isFinished}
-      style={{
-        padding: '6px 12px',
-        fontSize: 30,
-        fontWeight: 'bold',
-        color: '#dc3545',
-        borderRadius: 5,
-        cursor: isFinished ? 'not-allowed' : 'pointer',
-        width: 50,
-        border: q.answer === false ? '2px solid #dc3545' : '1px solid #dc3545',
-        backgroundColor: q.answer === false ? '#f5c6cb' : '#f0f0f0',
-        boxShadow: q.answer === false ? '0 0 5px rgba(0,0,0,0.2)' : 'none',
-      }}
-    >
-      X
-    </button>
-  </div>
+    />
+  )}
 </div>
 
+  {/* Środek: aparat */}
+  {!isFinished && (
+    <ImageUploader onUpload={(files) => addImageToQuestion(activeTab, q.id, files)} />
+  )}
 
-        {/* Sekcja zdjęć */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginTop: 20 }}>
-          {!isFinished && (
-            <ImageUploader onUpload={(files) => addImageToQuestion(activeTab, q.id, files)} />
-          )}
-          {images.length > 0 && (
-            <span
-              style={{ fontSize: 11, color: '#007bff', cursor: 'pointer', textAlign: 'center' }}
-              onClick={() => setShowImages(prev => !prev)}
-            >
-              {images.length} zdjęc{images.length > 1 ? 'ia' : 'ie'}
-            </span>
-          )}
-        </div>
+  {/* Dół: liczba zdjęć */}
+  {images.length > 0 && (
+    <span
+      style={{ fontSize: 11, color: '#007bff', textAlign: 'center', marginTop: 4 }}
+      onClick={() => setShowImages(prev => !prev)}
+    >
+      {images.length} zdjęc{images.length > 1 ? 'ia' : 'ie'}
+    </span>
+  )}
+</div>
+  </div>
 
-        {/* Przycisk notatki */}
-        <button
-          onClick={() => setShowNote(prev => !prev)}
-          disabled={isFinished}
-          style={{
-            width: 35,
-            height: 35,
-            fontSize: 16,
-            borderRadius: 4,
-            border: '1px solid #ccc',
-            backgroundColor: showNote ? '#e0e0e0' : '#f0f0f0',
-            cursor: isFinished ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-           marginTop: 20 
-          }}
-          title={showNote ? 'Ukryj notatkę' : 'Dodaj notatkę'}
-        >
-          ✏️
-        </button>
-      </div>
+{showNote && (
+  <div style={{ width: '100%' }}>
+    <textarea
+      placeholder="Wpisz własną uwagę..."
+      value={q.note || ''}
+      onChange={(e) => updateNote(activeTab, q.id, e.target.value)}
+      disabled={isFinished}
+      style={{
+        width: '100%',
+        padding: 8,
+        borderRadius: 4,
+        border: '1px solid #ccc',
+        marginTop: 6,
+        marginBottom: 4,
+        resize: 'vertical',
+        fontSize: 14,
+        backgroundColor: isFinished ? '#f5f5f5' : 'white',
+        minHeight: 60,
+        lineHeight: 1.4,
+      }}
+    />
+    {!isFinished && (
+      <button
+        onClick={() => {
+          // zapisujemy notatkę
+          updateNote(activeTab, q.id, q.note || '');
+          // automatycznie zamykamy pole
+          setShowNote(false);
+        }}
+        style={{
+          padding: '4px 8px',
+          fontSize: 12,
+          borderRadius: 4,
+          border: '1px solid #ccc',
+          cursor: 'pointer',
+          backgroundColor: '#f0f0f0',
+        }}
+      >
+        Zapisz
+      </button>
+    )}
+  </div>
+)}
 
-      {/* Pole notatki */}
-      {showNote && (
-        <textarea
-          placeholder="Wpisz własną uwagę..."
-          value={q.note || ''}
-          onChange={(e) => updateNote(activeTab, q.id, e.target.value)}
-          disabled={isFinished}
-          style={{
-            width: '100%',
-            padding: 8,
-            borderRadius: 4,
-            border: '1px solid #ccc',
-            marginTop: 6,
-            marginBottom: 8,
-            resize: 'vertical',
-            fontSize: 14,
-            backgroundColor: isFinished ? '#f5f5f5' : 'white'
-          }}
-        />
-      )}
-
-      {/* Podgląd zdjęć */}
-      {showImages && (
-        <ImagePreviewList images={images} onRemove={handleRemoveImage} disabled={isFinished} />
-      )}
-    </div>
+  {/* Podgląd zdjęć */}
+  {showImages && (
+    <ImagePreviewList images={images} onRemove={handleRemoveImage} disabled={isFinished} />
+  )}
+</div>
   );
 };
