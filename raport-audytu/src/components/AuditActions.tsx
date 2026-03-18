@@ -30,9 +30,6 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
   onFinishAudit,
 }) => {
 
-  // 🔒 ADMIN CHECK
-  const isAdmin =
-    auditId === 999 && auditorName?.trim().toLowerCase() === "admin";
 
   const startNewAudit = () => {
     const confirmNew = window.confirm(

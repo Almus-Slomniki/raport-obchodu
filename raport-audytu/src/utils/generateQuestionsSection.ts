@@ -46,91 +46,24 @@ export const generateQuestionsSection = async (
     const catQuestions = questions[cat] || initialQuestions.map(q => ({ ...q }));
     if (catQuestions.length === 0) continue;
 
-    // --- Pierwsze pytanie ---
-    const firstQuestion = catQuestions[0];
-
-    // --- Obliczamy wysokość całego bloku (nagłówek + pytanie + notatka + zdjęcia) ---
-    let firstBlockHeight = 0;
-
+    // --- Nagłówek kategorii ---
     const headerLines = doc.splitTextToSize(`Linia: ${cat}`, columnWidth);
-    firstBlockHeight += headerLines.length * 6 + 2;
-
-    const questionLines = doc.splitTextToSize(firstQuestion.text, columnWidth);
-    firstBlockHeight += questionLines.length * 6 + 2;
-
-    if (firstQuestion.note && firstQuestion.note.trim() !== "") {
-      const noteLines = doc.splitTextToSize(`Uwaga: ${firstQuestion.note}`, columnWidth);
-      firstBlockHeight += noteLines.length * 5 + 2;
-    }
-
-    const firstImages = imagesState[cat]?.[firstQuestion.id] || [];
-    for (const imgSrc of firstImages) {
-      try {
-        const img = await loadImage(await imageToBase64(imgSrc));
-        const imgW = img.width * 0.264583;
-        const imgH = img.height * 0.264583;
-        const scale = Math.min(maxImgWidth / imgW, maxImgHeight / imgH, 1);
-        firstBlockHeight += imgH * scale + imageSpacing;
-      } catch {}
-    }
-
-    // --- Dodaj nową stronę jeśli potrzeba ---
-    if (yPos + firstBlockHeight > pageHeight - margin) {
-      doc.addPage();
-      yPos = margin;
-    }
-
-    // --- Nagłówek linii ---
     doc.setFontSize(14);
     doc.setTextColor(20, 60, 120);
     doc.text(headerLines, margin, yPos);
     yPos += headerLines.length * 6 + 2;
 
-    // --- Pierwsze pytanie ---
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    doc.text(questionLines, margin, yPos);
-    yPos += questionLines.length * 6 + 2;
-
-    // --- Komentarz pierwszego pytania ---
-    if (firstQuestion.note && firstQuestion.note.trim() !== "") {
-      const noteLines = doc.splitTextToSize(`Uwaga: ${firstQuestion.note}`, columnWidth);
-      doc.setTextColor(100, 100, 100);
-      doc.text(noteLines, margin, yPos);
-      yPos += noteLines.length * 5 + 2;
-      doc.setTextColor(0, 0, 0);
-    }
-
-    // --- Zdjęcia pierwszego pytania ---
-    for (const imgSrc of firstImages) {
-      try {
-        const base64 = await imageToBase64(imgSrc);
-        const img = await loadImage(base64);
-        let imgW = img.width * 0.264583;
-        let imgH = img.height * 0.264583;
-        const scale = Math.min(maxImgWidth / imgW, maxImgHeight / imgH, 1);
-        imgW *= scale;
-        imgH *= scale;
-
-        if (yPos + imgH > pageHeight - margin) {
-          doc.addPage();
-          yPos = margin;
-        }
-        doc.addImage(base64, "JPEG", margin, yPos, imgW, imgH);
-        yPos += imgH + imageSpacing;
-      } catch {}
-    }
-
-    yPos += 4;
-
-    // --- Pozostałe pytania ---
-    for (let i = 1; i < catQuestions.length; i++) {
+    // --- Pytania w kategorii ---
+    for (let i = 0; i < catQuestions.length; i++) {
       const q = catQuestions[i];
-      const qLines = doc.splitTextToSize(`• ${q.text}`, columnWidth);
-      let blockHeight = qLines.length * 6 + 2;
+
+      // --- Wysokość bloku ---
+      let blockHeight = 0;
+      const qLines = doc.splitTextToSize(q.text, columnWidth - 20); // miejsce na ikonę
+      blockHeight += qLines.length * 6 + 2;
 
       if (q.note && q.note.trim() !== "") {
-        const noteLines = doc.splitTextToSize(`Uwaga: ${q.note}`, columnWidth);
+        const noteLines = doc.splitTextToSize(`Uwaga: ${q.note}`, columnWidth - 20);
         blockHeight += noteLines.length * 5 + 2;
       }
 
@@ -138,32 +71,57 @@ export const generateQuestionsSection = async (
       for (const imgSrc of qImages) {
         try {
           const img = await loadImage(await imageToBase64(imgSrc));
-          let imgW = img.width * 0.264583;
-          let imgH = img.height * 0.264583;
-          const scale = Math.min(maxImgWidth / imgW, maxImgHeight / imgH, 1);
-          blockHeight += imgH * scale + imageSpacing;
+          const scale = Math.min(maxImgWidth / img.width, maxImgHeight / img.height, 1);
+          blockHeight += img.height * scale + imageSpacing;
         } catch {}
       }
-      blockHeight += 4;
 
       if (yPos + blockHeight > pageHeight - margin) {
         doc.addPage();
         yPos = margin;
       }
 
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(qLines, margin, yPos);
-      yPos += qLines.length * 6 + 2;
+      // --- Ikona statusu (V/X/okienko szare) ---
+      const iconSize = 6;
+      const iconX = margin;
+      const iconY = yPos - 3;
 
-      if (q.note && q.note.trim() !== "") {
-        const noteLines = doc.splitTextToSize(`Uwaga: ${q.note}`, columnWidth);
-        doc.setTextColor(100, 100, 100);
-        doc.text(noteLines, margin, yPos);
-        yPos += noteLines.length * 5 + 2;
-        doc.setTextColor(0, 0, 0);
+      doc.setLineWidth(0.8);
+      doc.setFontSize(7);
+      doc.setTextColor(0, 0, 0);
+
+      if (q.answer === true) {
+        doc.setDrawColor(0, 150, 0);
+        doc.setFillColor(200, 255, 200);
+        doc.circle(iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2, "FD");
+        // doc.text("V", iconX + 1.5, iconY + 5); // V w środku
+      } else if (q.answer === false) {
+        doc.setDrawColor(200, 0, 0);
+        doc.setFillColor(255, 200, 200);
+        doc.circle(iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2, "FD");
+        // doc.text("X", iconX + 1.7, iconY + 5); // X w środku
+      } else {
+        doc.setDrawColor(100);
+        doc.setFillColor(255, 255, 255);
+        doc.circle(iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2, "FD");
       }
 
+      // --- Tekst pytania ---
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(qLines, margin + 12, yPos);
+      yPos += qLines.length * 6 + 2;
+
+      // --- Notatka ---
+      if (q.note && q.note.trim() !== "") {
+        const noteLines = doc.splitTextToSize(`Uwaga: ${q.note}`, columnWidth - 20);
+        doc.setTextColor(100, 100, 100);
+        doc.text(noteLines, margin + 12, yPos);
+        yPos += noteLines.length * 5 + 2;
+      }
+      doc.setTextColor(0, 0, 0);
+
+      // --- Zdjęcia z ramką ---
       for (const imgSrc of qImages) {
         try {
           const base64 = await imageToBase64(imgSrc);
@@ -178,6 +136,7 @@ export const generateQuestionsSection = async (
             doc.addPage();
             yPos = margin;
           }
+          doc.rect(margin - 1, yPos - 1, imgW + 2, imgH + 2); // ramka
           doc.addImage(base64, "JPEG", margin, yPos, imgW, imgH);
           yPos += imgH + imageSpacing;
         } catch {}
@@ -186,7 +145,6 @@ export const generateQuestionsSection = async (
       yPos += 4;
     }
 
-    // --- Mała przerwa po kategorii tylko jeśli nie jest ostatnia ---
     if (cat !== categories[categories.length - 1]) yPos += 8;
   }
 
