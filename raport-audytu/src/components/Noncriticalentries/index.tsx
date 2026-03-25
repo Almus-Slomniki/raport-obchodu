@@ -11,9 +11,14 @@ import { NonCriticalEntryForm } from "./NonCriticalEntryForm";
 type Props = {
   auditId: number;
   activeCategory: string;
+  isFinished?: boolean;
 };
 
-export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory }) => {
+export const NonCriticalEntries: React.FC<Props> = ({
+  auditId,
+  activeCategory,
+  isFinished = false
+}) => {
   const [entries, setEntries] = useState<NonCriticalEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -31,6 +36,8 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory })
 
   // ---- Dodawanie wpisu ----
   const addEntry = async (entry: NonCriticalEntry) => {
+    if (isFinished) return;
+
     const entryWithLine = { ...entry, line: entry.line || activeCategory };
     const saved = await saveNonCriticalEntry(auditId, entryWithLine);
     if (saved) {
@@ -40,7 +47,8 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory })
 
   // ---- Aktualizacja wpisu ----
   const updateEntry = async (updated: NonCriticalEntry) => {
-    if (!updated.id) return;
+    if (isFinished || !updated.id) return;
+
     const success = await updateNonCriticalEntry(updated.id, updated);
     if (success) {
       setEntries(prev => prev.map(e => (e.id === updated.id ? updated : e)));
@@ -49,9 +57,11 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory })
 
   // ---- Usuwanie wpisu ----
   const removeEntry = async (id?: number) => {
-    if (!id) return;
+    if (isFinished || !id) return;
+
     const confirmed = window.confirm("Czy na pewno chcesz usunąć ten wpis?");
     if (!confirmed) return;
+
     const success = await deleteNonCriticalEntry(id);
     if (success) {
       setEntries(prev => prev.filter(e => e.id !== id));
@@ -60,11 +70,20 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory })
 
   return (
     <div style={{ marginTop: 20 }}>
+      {/* Formularz dodawania */}
       <NonCriticalEntryForm
         auditId={auditId}
         activeCategory={activeCategory}
         onAdd={addEntry}
+        disabled={isFinished}
       />
+
+      {/* Komunikat */}
+      {isFinished && (
+        <p style={{ color: "red", fontSize: 12, marginTop: 10 }}>
+          Audyt zakończony – edycja zablokowana
+        </p>
+      )}
 
       <h3 style={{ marginTop: 20 }}>Lista wpisów niekrytycznych</h3>
 
@@ -75,8 +94,23 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory })
       ) : (
         <ul style={{ listStyle: "none", padding: 0 }}>
           {entries.map(entry => (
-            <li key={entry.id || `${entry.name}-${Math.random()}`} style={{ marginBottom: 10, border: "1px solid #ccc", padding: 10, borderRadius: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <li
+              key={entry.id || `${entry.name}-${Math.random()}`}
+              style={{
+                marginBottom: 10,
+                border: "1px solid #ccc",
+                padding: 10,
+                borderRadius: 6,
+                backgroundColor: isFinished ? "#f5f5f5" : "white"
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}
+              >
                 <div>
                   <strong>{entry.name}</strong> <em>({entry.line})</em>
                   {entry.note && <p>{entry.note}</p>}
@@ -87,20 +121,32 @@ export const NonCriticalEntries: React.FC<Props> = ({ auditId, activeCategory })
 
                 <div style={{ display: "flex", gap: 10 }}>
                   <button
+                    disabled={isFinished}
                     onClick={() => {
                       const newName = prompt("Edytuj nazwę:", entry.name);
                       if (!newName) return;
-                      const newLine = prompt("Edytuj linię:", entry.line) || entry.line;
+
+                      const newLine =
+                        prompt("Edytuj linię:", entry.line) || entry.line;
+
                       updateEntry({ ...entry, name: newName, line: newLine });
                     }}
-                    style={{ cursor: "pointer" }}
+                    style={{
+                      cursor: isFinished ? "not-allowed" : "pointer",
+                      opacity: isFinished ? 0.5 : 1
+                    }}
                   >
                     ✏️
                   </button>
 
                   <button
+                    disabled={isFinished}
                     onClick={() => removeEntry(entry.id)}
-                    style={{ cursor: "pointer", color: "red" }}
+                    style={{
+                      cursor: isFinished ? "not-allowed" : "pointer",
+                      color: "red",
+                      opacity: isFinished ? 0.5 : 1
+                    }}
                   >
                     🗑️
                   </button>

@@ -61,16 +61,18 @@ type Props = {
   auditId: number;
   activeCategory: string;
   onAdd: (entry: NonCriticalEntry) => void;
+  disabled?: boolean;
 };
 
 export const NonCriticalEntryForm: React.FC<Props> = ({
   auditId,
   activeCategory,
-  onAdd
+  onAdd,
+  disabled = false
 }) => {
   const [openCategory, setOpenCategory] = useState<Category | null>(null);
-  const [name, setName] = useState(""); // treść uwagi
-  const [line, setLine] = useState(activeCategory); // aktualna kategoria lub "inne"
+  const [name, setName] = useState("");
+  const [line, setLine] = useState(activeCategory);
   const [images, setImages] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<ChecklistItem[]>([]);
 
@@ -81,6 +83,8 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
   }, [activeCategory]);
 
   const toggleCategory = (cat: Category) => {
+    if (disabled) return;
+
     setOpenCategory(prev => (prev === cat ? null : cat));
     setLine(cat);
     setName("");
@@ -88,11 +92,14 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
   };
 
   const handleNameChange = (value: string) => {
+    if (disabled) return;
+
     setName(value);
     if (!value.trim()) {
       setSuggestions([]);
       return;
     }
+
     const filtered = allChecklistItems.filter(item =>
       item.text.toLowerCase().includes(value.toLowerCase())
     );
@@ -100,6 +107,8 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
   };
 
   const addImages = async (files: FileList) => {
+    if (disabled) return;
+
     const uploaded: string[] = [];
     for (let i = 0; i < files.length; i++) {
       try {
@@ -113,6 +122,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
   };
 
   const handleAddEntry = () => {
+    if (disabled) return;
     if (!name.trim()) return;
 
     onAdd({
@@ -122,7 +132,6 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
       note: ""
     });
 
-    // reset
     setName("");
     setImages([]);
     setSuggestions([]);
@@ -131,13 +140,14 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
   };
 
   return (
-    <div style={{ marginTop: 20 }}>
-      {/* KATEGORIE + PODPUNKTY */}
+    <div style={{ marginTop: 20, opacity: disabled ? 0.6 : 1 }}>
+      {/* KATEGORIE */}
       {categories.map((cat, catIndex) => {
         const catNumber = catIndex + 1;
         return (
           <div key={cat} style={{ marginBottom: 6 }}>
             <button
+              disabled={disabled}
               onClick={() => toggleCategory(cat)}
               style={{
                 width: "100%",
@@ -146,35 +156,29 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
                 borderRadius: 6,
                 background: openCategory === cat ? "#3da2eb" : "white",
                 fontWeight: "bold",
-                cursor: "pointer"
+                cursor: disabled ? "not-allowed" : "pointer"
               }}
             >
               {catNumber}. {cat}
             </button>
 
             {openCategory === cat && (
-              <ul
-                style={{
-                  listStyle: "none",
-                  padding: 0,
-                  marginTop: 4,
-                  border: "1px solid #ccc",
-                  borderRadius: 6
-                }}
-              >
+              <ul style={{ listStyle: "none", padding: 0 }}>
                 {checklistData[cat].map((text, itemIndex) => (
                   <li key={itemIndex}>
                     <button
                       type="button"
+                      disabled={disabled}
                       style={{
                         width: "100%",
                         textAlign: "left",
                         padding: 10,
                         border: "none",
                         borderBottom: "1px solid #eee",
-                        cursor: "pointer"
+                        cursor: disabled ? "not-allowed" : "pointer"
                       }}
                       onClick={() => {
+                        if (disabled) return;
                         setName(text);
                         setLine(cat);
                         setOpenCategory(null);
@@ -190,102 +194,55 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
         );
       })}
 
-      {/* INPUT TREŚCI UWAGI */}
-      <div style={{ position: "relative", marginTop: 10 }}>
-        <input
-          value={name}
-          placeholder="Treść uwagi"
-          onChange={e => handleNameChange(e.target.value)}
-          style={{ width: "100%", padding: 8 }}
-        />
+      {/* INPUT */}
+      <input
+        value={name}
+        placeholder="Treść uwagi"
+        onChange={e => handleNameChange(e.target.value)}
+        disabled={disabled}
+        style={{ width: "100%", padding: 8, marginTop: 10 }}
+      />
 
-        {!isCustom && suggestions.length > 0 && (
-          <ul
-            style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              background: "white",
-              border: "1px solid #ccc",
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              zIndex: 10
-            }}
-          >
-            {suggestions.map((s, i) => {
-              const catNumber = categories.indexOf(s.category) + 1;
-              const itemNumber = checklistData[s.category].indexOf(s.text) + 1;
-              return (
-                <li key={i}>
-                  <button
-                    type="button"
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: 8,
-                      border: "none",
-                      background: "#eee"
-                    }}
-                    onClick={() => {
-                      setName(s.text);
-                      setLine(s.category);
-                      setSuggestions([]);
-                    }}
-                  >
-                    {catNumber}.{itemNumber} {s.text}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      {/* SELECT DLA KATEGORII: tylko aktualna + "inne" */}
+      {/* SELECT */}
       <select
         value={line}
         onChange={e => setLine(e.target.value)}
-        style={{ display: "block", marginTop: 10, marginBottom: 10, width: "100%", padding: 8 }}
+        disabled={disabled}
+        style={{ marginTop: 10, width: "100%", padding: 8 }}
       >
         <option value={line}>{line}</option>
         {!isCustom && <option value="inne">➕ Inne</option>}
       </select>
 
-      {/* ZDJĘCIA + PRZYCISK DODAJ */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-        <div style={{ display: "flex", gap: 10 }}>
-          <label style={{ cursor: "pointer", fontSize: 24 }}>
-            📸
-            {images.length > 0 && (
-              <div style={{ fontStyle: "italic", color: "green" }}>
-                Dodano {images.length} {images.length === 1 ? "zdjęcie" : "zdjęcia"}
-              </div>
-            )}
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              capture="environment"
-              onChange={e => e.target.files && addImages(e.target.files)}
-              style={{ display: "none" }}
-            />
-          </label>
+      {/* ZDJĘCIA + DODAJ */}
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <label style={{ cursor: disabled ? "not-allowed" : "pointer", fontSize: 24 }}>
+          📸
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            capture="environment"
+            disabled={disabled}
+            onChange={e => e.target.files && addImages(e.target.files)}
+            style={{ display: "none" }}
+          />
+        </label>
 
-          <button
-            onClick={handleAddEntry}
-            style={{
-              padding: "10px 20px",
-              background: "#1464f4",
-              color: "white",
-              borderRadius: 6,
-              fontWeight: "bold"
-            }}
-          >
-            Dodaj
-          </button>
-        </div>
+        <button
+          onClick={handleAddEntry}
+          disabled={disabled}
+          style={{
+            padding: "10px 20px",
+            background: "#1464f4",
+            color: "white",
+            borderRadius: 6,
+            fontWeight: "bold",
+            cursor: disabled ? "not-allowed" : "pointer"
+          }}
+        >
+          Dodaj
+        </button>
       </div>
     </div>
   );
