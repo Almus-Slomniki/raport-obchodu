@@ -149,8 +149,12 @@ export const generateNonCriticalPDF = async (auditId: number) => {
 
       y += lineHeight * 2; // odstęp między liniami
     }
+      const now = new Date();
 
-    doc.save(`Niekrytyczne-${auditId}.pdf`);
+  const dateString = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+
+    doc.save(`Zagadnienia-niekrytyczne-${auditId ?? "XXX"}-${dateString}.pdf`);
+
   } catch (err) {
     console.error("Błąd generowania PDF niekrytycznych:", err);
     alert("Błąd generowania PDF niekrytycznych.");
