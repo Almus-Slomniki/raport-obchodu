@@ -125,14 +125,23 @@
 }
 
 /* Sekcja wczytywania audytu (mniej rzucająca się w oczy) */
+/* Sekcja wczytywania audytu (ID audytu) */
 .load-section input[type="number"] {
   padding: 12px;
   font-size: 16px;
   width: 80%;
   
   border-radius: 8px;
-  border: 1px solid #ccc;
+  border: 2px solid #28a745; /* zielona ramka */
+  outline: none;
   margin-bottom: 10px;
+  transition: all 0.2s;
+}
+
+/* Efekt po focusie */
+.load-section input[type="number"]:focus {
+  box-shadow: 0 0 6px rgba(40, 167, 69, 0.6); /* zielone podświetlenie */
+  border-color: #28a745;
 }
 
 .load-section button {
@@ -148,5 +157,52 @@
 }
 
 .load-section button:hover {
+  background-color: #3ec27b;
+}
+
+/* Kontener dla input + button w jednym bloku */
+.load-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 2px solid #28a745; /* zielona ramka */
+  border-radius: 10px;
+  padding: 12px;
+  background-color: #f9fff9; /* delikatne tło */
+  width: 100%;
+  max-width: 300px; /* dopasowanie do szerokości */
+  margin: 0 auto 0; /* wyśrodkowanie */
+}
+
+/* Input audytu */
+.load-block input[type="number"] {
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  outline: none;
+  width: 90%;
+  transition: all 0.2s;
+}
+
+.load-block input[type="number"]:focus {
+  border-color: #28a745;
+  box-shadow: 0 0 6px rgba(40, 167, 69, 0.6);
+}
+
+/* Button wczytaj istniejący */
+.load-block button {
+  padding: 12px 0;
+  font-size: 16px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.load-block button:hover {
   background-color: #3ec27b;
 }

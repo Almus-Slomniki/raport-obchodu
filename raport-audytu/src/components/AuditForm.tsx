@@ -267,23 +267,25 @@ export const AuditForm: React.FC = () => {
         <div className="start-section">
           <h3>Audyt / Obchód</h3>
           <button className="start-button" onClick={() => setStartingAudit(true)}>Rozpocznij nowy obchód</button>
-          <div className="load-section">
-            <input
-              type="number"
-              placeholder="ID audytu"
-              value={inputAuditId}
-              onChange={e => setInputAuditId(e.target.value)}
-            />
-            <button
-              onClick={() => {
-                const id = Number(inputAuditId);
-                setAuditId(id);
-                localStorage.setItem("currentAuditId", String(id));
-              }}
-            >
-              Wczytaj istniejący
-            </button>
-          </div>
+       <div className="load-section">
+  <div className="load-block">
+    <input
+      type="number"
+      placeholder="ID audytu"
+      value={inputAuditId}
+      onChange={e => setInputAuditId(e.target.value)}
+    />
+    <button
+      onClick={() => {
+        const id = Number(inputAuditId);
+        setAuditId(id);
+        localStorage.setItem("currentAuditId", String(id));
+      }}
+    >
+      Wczytaj istniejący
+    </button>
+  </div>
+</div>
         </div>
       </div>
     );
