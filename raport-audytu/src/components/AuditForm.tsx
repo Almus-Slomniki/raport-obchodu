@@ -270,7 +270,7 @@ export const AuditForm: React.FC = () => {
   <div className="load-block">
     <input
       type="number"
-      placeholder="ID audytu"
+      placeholder="Numer audytu"
       value={inputAuditId}
       onChange={e => setInputAuditId(e.target.value)}
     />
