@@ -116,39 +116,13 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
   return (
     <>
       {/* 🔥 OVERLAY LOADER */}
-      {isGenerating && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            color: "white",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <div
-            style={{
-              width: 50,
-              height: 50,
-              border: "5px solid white",
-              borderTop: "5px solid transparent",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-
-          <div style={{ fontSize: 20 }}>{progress}%</div>
-          <div>Generowanie PDF...</div>
-        </div>
-      )}
+     {isGenerating && (
+  <div className="pdf-overlay">
+    <div className="spinner" />
+    <div style={{ fontSize: 20 }}>{progress}%</div>
+    <div>Generowanie PDF...</div>
+  </div>
+)}
 
       <div className="audit-actions-wrapper">
         <div className="audit-header">
