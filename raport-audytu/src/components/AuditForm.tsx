@@ -265,7 +265,6 @@ export const AuditForm: React.FC = () => {
     return (
       <div className="start-wrapper">
         <div className="start-section">
-          <h3>Audyt / Obchód</h3>
           <button className="start-button" onClick={() => setStartingAudit(true)}>Rozpocznij nowy obchód</button>
        <div className="load-section">
   <div className="load-block">
