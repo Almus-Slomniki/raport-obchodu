@@ -10,6 +10,7 @@ import { generateQuestionsSection } from "./generateQuestionsSection";
  * @param auditNumber - numer audytu
  * @param auditorName - imię audytora
  * @param leaderName - imię lidera
+ * @param onProgress - callback procentu postępu generowania PDF
  */
 export const generatePDF = async (
   questions: any,
@@ -17,6 +18,7 @@ export const generatePDF = async (
   auditNumber?: number,
   auditorName?: string,
   leaderName?: string,
+  onProgress?: (percent: number) => void // 🔥 nowy argument
 ) => {
   const doc = new jsPDF("l", "mm", "a4");
 
@@ -25,18 +27,18 @@ export const generatePDF = async (
   doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
   doc.setFont("Roboto");
 
-  // --- Generujemy tabelę podsumowującą i pobieramy startY ---
+  // --- Generujemy tabelę podsumowującą ---
   const startY = generateSummaryTable(doc, questions, auditorName, leaderName, auditNumber);
 
-  // --- Sekcja pytań z obrazkami ---
-  const lastY = await generateQuestionsSection(doc, questions, imagesState, startY);
+  // --- Sekcja pytań z obrazkami (z callbackiem onProgress) ---
+  const lastY = await generateQuestionsSection(doc, questions, imagesState, startY, onProgress);
 
   // --- Jasnoszare tło dla pytań disabled (bez tekstu) ---
   if (questions && typeof questions === "object") {
     const rowHeight = 10;
     let currentY = startY;
 
-    Object.keys(questions).forEach(cat => {
+    Object.keys(questions).forEach((cat) => {
       questions[cat].forEach((q: any) => {
         if (q.disabled) {
           doc.setFillColor(220, 220, 220);
@@ -49,9 +51,16 @@ export const generatePDF = async (
 
   // --- Nazwa pliku PDF z numerem audytu i datą ---
   const now = new Date();
-  const dateString = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+  const dateString = `${now.getDate().toString().padStart(2, "0")}-${(
+    now.getMonth() + 1
+  )
+    .toString()
+    .padStart(2, "0")}-${now.getFullYear()}`;
   const fileName = `Zagadnienia-Krytyczne-${auditNumber ?? "XXX"}-${dateString}.pdf`;
 
   // --- Zapis PDF ---
   doc.save(fileName);
+
+  // Jeśli callback istnieje, ustaw 100%
+  onProgress && onProgress(100);
 };

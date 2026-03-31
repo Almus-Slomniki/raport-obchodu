@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { generatePDF } from "../utils/generatePDF";
 import { exportToExcel } from "../utils/exportToExcel";
 import { generateNonCriticalPDF } from "../utils/GenerateNonCriticalPDF";
-import { exportAllAuditsToExcel } from "../utils/exportAllAuditsToExcel"; // <-- NOWE
-import "./AuditActions.css"
- 
+import { exportAllAuditsToExcel } from "../utils/exportAllAuditsToExcel";
+import "./AuditActions.css";
+
 interface AuditActionsProps {
   auditId: number;
   isFinished: boolean;
@@ -25,11 +25,13 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
   imagesState,
   auditorName,
   leaderName,
-  auditDate,
   onStartNewAudit,
   onFinishAudit,
 }) => {
 
+  // 🔥 NOWE STATE
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const startNewAudit = () => {
     const confirmNew = window.confirm(
@@ -38,7 +40,7 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
     if (!confirmNew) return;
 
     localStorage.removeItem("lastUnfinishedAudit");
-    if (onStartNewAudit) onStartNewAudit();
+    onStartNewAudit?.();
   };
 
   const finishAudit = async () => {
@@ -59,16 +61,33 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
         .eq('audit_id', auditId);
 
       if (error) {
-        console.error('Błąd zakończenia audytu:', error);
         alert('Błąd zakończenia audytu.');
         return;
       }
 
       alert(`Obchód ${auditId} został zakończony.`);
-      if (onFinishAudit) onFinishAudit();
-    } catch (err) {
-      console.error('Błąd zakończenia audytu:', err);
+      onFinishAudit?.();
+    } catch {
       alert('Błąd zakończenia audytu.');
+    }
+  };
+
+  // 🔥 PDF z loaderem
+  const handleGeneratePDF = async () => {
+    try {
+      setIsGenerating(true);
+      setProgress(0);
+
+      await generatePDF(
+        questions,
+        imagesState,
+        auditId,
+        auditorName,
+        leaderName,
+        setProgress // 🔥 KLUCZ
+      );
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -76,7 +95,6 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
     await generateNonCriticalPDF(auditId);
   };
 
-  // 📊 EXPORT WSZYSTKICH AUDYTÓW
   const handleExportAll = async () => {
     try {
       const { data, error } = await supabase
@@ -84,87 +102,109 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
         .select("*")
         .eq("is_finished", true);
 
-      if (error) {
-        console.error(error);
-        alert("Błąd pobierania danych.");
-        return;
-      }
-
-      if (!data || data.length === 0) {
-        alert("Brak zakończonych audytów.");
+      if (error || !data) {
+        alert("Błąd danych.");
         return;
       }
 
       await exportAllAuditsToExcel(data);
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Błąd eksportu.");
     }
   };
 
   return (
-    <div className="audit-actions-wrapper">
-      {/* Nagłówek */}
-      <div className="audit-header">
-        <h2>Raport obchodu</h2>
-        <div>Numer obchodu: <strong>{auditId}</strong></div>
-        <div>Lider: <strong>{leaderName || '-'}</strong></div>
-        <div>Audytor: <strong>{auditorName || '-'}</strong></div>
-      </div>
-
-      {/* Przyciski */}
-      <div className="audit-buttons">
-        {/* NOWY OBCHÓD */}
-        <button className="audit-button btn-new" onClick={startNewAudit}>
-          Nowy obchód
-        </button>
-
-        {/* ZAKOŃCZ OBCHÓD */}
-        <button
-          className={`audit-button ${isFinished ? 'btn-disabled' : 'btn-finish'}`}
-          onClick={finishAudit}
-          disabled={isFinished}
+    <>
+      {/* 🔥 OVERLAY LOADER */}
+      {isGenerating && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            color: "white",
+            flexDirection: "column",
+            gap: 16,
+          }}
         >
-          Zakończ obchód
-        </button>
+          <div
+            style={{
+              width: 50,
+              height: 50,
+              border: "5px solid white",
+              borderTop: "5px solid transparent",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+            }}
+          />
 
-        {isFinished && (
-          <>
-            {/* PDF krytyczne */}
-            <button
-              className="audit-button btn-critical"
-              onClick={() => generatePDF(questions, imagesState, auditId, auditorName, leaderName)}
-            >
-              Generuj krytyczne
-            </button>
+          <div style={{ fontSize: 20 }}>{progress}%</div>
+          <div>Generowanie PDF...</div>
+        </div>
+      )}
 
-            {/* PDF niekrytyczne */}
-            <button
-              className="audit-button btn-noncritical"
-              onClick={exportNonCriticalPDF}
-            >
-              Generuj niekrytyczne
-            </button>
+      <div className="audit-actions-wrapper">
+        <div className="audit-header">
+          <h2>Raport obchodu</h2>
+          <div>Numer obchodu: <strong>{auditId}</strong></div>
+          <div>Lider: <strong>{leaderName || '-'}</strong></div>
+          <div>Audytor: <strong>{auditorName || '-'}</strong></div>
+        </div>
 
-            {/* Excel */}
-            <button
-              className="audit-button btn-excel"
-              onClick={() => exportToExcel(questions, auditId)}
-            >
-              Eksportuj do Excel
-            </button>
-                  <button
-            className="audit-button btn-excel"
-            onClick={handleExportAll}
+        <div className="audit-buttons">
+          <button className="audit-button btn-new" onClick={startNewAudit}>
+            Nowy obchód
+          </button>
+
+          <button
+            className={`audit-button ${isFinished ? 'btn-disabled' : 'btn-finish'}`}
+            onClick={finishAudit}
+            disabled={isFinished}
           >
-            📊 Wszystkie audyty
-</button>
-          </>
-        )}
+            Zakończ obchód
+          </button>
 
-      
-    
+          {isFinished && (
+            <>
+              <button
+                className="audit-button btn-critical"
+                onClick={handleGeneratePDF}
+                disabled={isGenerating}
+              >
+                {isGenerating ? "Generowanie..." : "Generuj krytyczne"}
+              </button>
+
+              <button
+                className="audit-button btn-noncritical"
+                onClick={exportNonCriticalPDF}
+              >
+                Generuj niekrytyczne
+              </button>
+
+              <button
+                className="audit-button btn-excel"
+                onClick={() => exportToExcel(questions, auditId)}
+              >
+                Eksportuj do Excel
+              </button>
+
+              <button
+                className="audit-button btn-excel"
+                onClick={handleExportAll}
+              >
+                📊 Wszystkie audyty
+              </button>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
