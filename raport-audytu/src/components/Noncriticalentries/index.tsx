@@ -108,14 +108,49 @@ export const NonCriticalEntries: React.FC<Props> = ({
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "flex-start",
+                  gap: 10
                 }}
               >
-                <div>
+                <div style={{ flex: 1 }}>
                   <strong>{entry.name}</strong> <em>({entry.line})</em>
+
                   {entry.note && <p>{entry.note}</p>}
+
+                  {/* ✅ WYŚWIETLANIE ZDJĘĆ */}
                   {entry.images && entry.images.length > 0 && (
-                    <p>Zdjęcia: {entry.images.length}</p>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        marginTop: 8,
+                        flexWrap: "wrap"
+                      }}
+                    >
+                      {entry.images.map((img, index) => (
+                        <img
+                          key={index}
+                          src={img}
+                          alt={`Zdjęcie ${index + 1}`}
+                          style={{
+                            width: 80,
+                            height: 80,
+                            objectFit: "cover",
+                            borderRadius: 6,
+                            border: "1px solid #ccc",
+                            cursor: "pointer",
+                            transition: "transform 0.2s"
+                          }}
+                          onClick={() => window.open(img, "_blank")}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.transform = "scale(1.1)")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.transform = "scale(1)")
+                          }
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
 
