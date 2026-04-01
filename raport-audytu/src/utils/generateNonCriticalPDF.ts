@@ -27,23 +27,23 @@ export const generateNonCriticalPDF = async (auditId: number) => {
     const marginX = 15;
     const marginY = 15;
     const lineHeight = 7;
-    const imgSize = 30;
+
     const imgGap = 5;
+
+    // 🔥 max rozmiary (proporcjonalne)
+    const maxWidth = 100;
+    const maxHeight = 75;
 
     let y = marginY;
 
-    // NAGŁÓWEK PDF
+    // NAGŁÓWEK
     doc.setFont("Roboto", "bold");
     doc.setFontSize(18);
     doc.setTextColor(0, 0, 128);
-    doc.text(
-      `Raport niekrytycznych uwag - Obchód ${auditId}`,
-      marginX,
-      y
-    );
+    doc.text(`Raport niekrytycznych uwag - Obchód ${auditId}`, marginX, y);
     y += lineHeight * 3;
 
-    // GRUPOWANIE PO LINII
+    // GRUPOWANIE
     const grouped: Record<string, typeof entries> = {};
     entries.forEach(entry => {
       const line = entry.line || "Brak linii";
@@ -52,19 +52,19 @@ export const generateNonCriticalPDF = async (auditId: number) => {
     });
 
     for (const line of Object.keys(grouped)) {
-      // NAGŁÓWEK LINII
       if (y + lineHeight * 3 > pageHeight - marginY) {
         doc.addPage();
         y = marginY;
       }
 
+      // NAGŁÓWEK LINII
       doc.setFont("Roboto", "bold");
       doc.setFontSize(14);
       doc.setTextColor(30, 144, 255);
       doc.text(`Linia: ${line}`, marginX, y);
       y += lineHeight + 1;
 
-      // PODNAGŁÓWEK: TYP UWAGI
+      // PODNAGŁÓWEK
       doc.setFont("Roboto", "bold");
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
@@ -77,11 +77,13 @@ export const generateNonCriticalPDF = async (auditId: number) => {
       for (const entry of grouped[line]) {
         const noteText = entry.note ? ` ${entry.note}` : "";
         const entryText = `• ${entry.name}${noteText}`;
+
         const splitText = doc.splitTextToSize(
           entryText,
           pageWidth - marginX * 2
         );
 
+        // TEKST
         for (const lineText of splitText) {
           if (y + lineHeight > pageHeight - marginY) {
             doc.addPage();
@@ -93,52 +95,67 @@ export const generateNonCriticalPDF = async (auditId: number) => {
 
         y += 2;
 
-        // ZDJĘCIA
+        // 🔥 ZDJĘCIA Z PROPORCJAMI
         if (entry.images && entry.images.length > 0) {
           let x = marginX + 10;
-          let rowHeight = 0;
+          let imagesInRow = 0;
 
           for (const imgUrl of entry.images) {
-            if (y + imgSize > pageHeight - marginY) {
-              doc.addPage();
-              y = marginY;
-              x = marginX + 10;
-            }
-
             try {
               const imgResp = await fetch(imgUrl);
               const blob = await imgResp.blob();
               const reader = new FileReader();
 
               const imgData: string = await new Promise(resolve => {
-                reader.onloadend = () =>
-                  resolve(reader.result as string);
+                reader.onloadend = () => resolve(reader.result as string);
                 reader.readAsDataURL(blob);
               });
 
-              doc.addImage(
-                imgData,
-                "JPEG",
-                x,
-                y,
-                imgSize,
-                imgSize
-              );
+              // 🔥 pobranie proporcji
+              const img = new Image();
+              img.src = imgData;
 
-              x += imgSize + imgGap;
-              rowHeight = Math.max(rowHeight, imgSize);
+              await new Promise(res => {
+                img.onload = res;
+              });
 
-              if (x + imgSize > pageWidth - marginX) {
+              let width = img.width;
+              let height = img.height;
+
+              // 🔥 skalowanie proporcjonalne
+              const ratio = Math.min(maxWidth / width, maxHeight / height);
+              width *= ratio;
+              height *= ratio;
+
+              // sprawdzenie strony
+              if (y + height > pageHeight - marginY) {
+                doc.addPage();
+                y = marginY;
                 x = marginX + 10;
-                y += rowHeight + imgGap;
-                rowHeight = 0;
+                imagesInRow = 0;
+              }
+
+              doc.addImage(imgData, "JPEG", x, y, width, height);
+
+              imagesInRow++;
+              x += maxWidth + imgGap;
+
+              // max 2 w rzędzie
+              if (imagesInRow === 2) {
+                imagesInRow = 0;
+                x = marginX + 10;
+                y += maxHeight + imgGap;
               }
             } catch (err) {
               console.error("Błąd ładowania obrazu:", err);
             }
           }
 
-          y += rowHeight + 5;
+          if (imagesInRow !== 0) {
+            y += maxHeight + imgGap;
+          }
+
+          y += 5;
         }
 
         if (y > pageHeight - marginY) {
@@ -147,14 +164,20 @@ export const generateNonCriticalPDF = async (auditId: number) => {
         }
       }
 
-      y += lineHeight * 2; // odstęp między liniami
+      y += lineHeight * 2;
     }
-      const now = new Date();
 
-  const dateString = `${now.getDate().toString().padStart(2,"0")}-${(now.getMonth()+1).toString().padStart(2,"0")}-${now.getFullYear()}`;
+    const now = new Date();
+    const dateString = `${now
+      .getDate()
+      .toString()
+      .padStart(2, "0")}-${(now.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}-${now.getFullYear()}`;
 
-    doc.save(`Zagadnienia-niekrytyczne-${auditId ?? "XXX"}-${dateString}.pdf`);
-
+    doc.save(
+      `Zagadnienia-niekrytyczne-${auditId ?? "XXX"}-${dateString}.pdf`
+    );
   } catch (err) {
     console.error("Błąd generowania PDF niekrytycznych:", err);
     alert("Błąd generowania PDF niekrytycznych.");
