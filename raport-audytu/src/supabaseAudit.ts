@@ -4,8 +4,19 @@ import { QuestionsState, ImagesState, NonCriticalEntry } from './components/type
 import { supabase } from './supabaseClient';
 
 /* -------------------------------------------------------------------------- */
-/*                               LOAD AUDIT DATA                               */
+/*                            GET PRIVATE IMAGE URL                            */
 /* -------------------------------------------------------------------------- */
+export const getPrivateImageUrl = async (path: string, expiresIn = 300) => {
+  const { data, error } = await supabase.storage
+    .from('audit-images')
+    .createSignedUrl(path, expiresIn);
+  if (error) {
+    console.error('❌ Błąd generowania signed URL:', error);
+    return null;
+  }
+  return data?.signedUrl ?? null;
+};
+
 /* -------------------------------------------------------------------------- */
 /*                               LOAD AUDIT DATA                               */
 /* -------------------------------------------------------------------------- */
@@ -27,11 +38,11 @@ export const loadAuditData = async (auditId: number): Promise<{
   const questions: QuestionsState = {};
   const images: ImagesState = {};
 
-  (data || []).forEach((row: any) => {
+  for (const row of data || []) {
     if (!questions[row.category]) questions[row.category] = [];
     if (!images[row.category]) images[row.category] = {};
 
-    // --- Bezpieczne parsowanie images ---
+    // --- Parsowanie images ---
     let parsedImages: string[] = [];
     try {
       if (row.images) {
@@ -47,31 +58,34 @@ export const loadAuditData = async (auditId: number): Promise<{
       parsedImages = [];
     }
 
-    // --- Mapowanie odpowiedzi (true/false) defensywnie ---
+    // --- Pobranie signed URL dla każdego obrazu ---
+    const mappedImages: string[] = [];
+    for (const imgPath of parsedImages) {
+      const signedUrl = await getPrivateImageUrl(imgPath, 300);
+      if (signedUrl) mappedImages.push(signedUrl);
+    }
+
+    // --- Mapowanie odpowiedzi ---
     const answerValue = row.answer;
     const mappedAnswer =
       answerValue === true || answerValue === 1 ? true :
       answerValue === false || answerValue === 0 ? false :
       undefined;
-console.log("eoeoe",questions)
+
     const questionObj: Question & { disabled?: boolean } = {
       id: row.question_id?.toString() ?? '0',
       text: row.question_text ?? '[BRAK TEKSTU]',
       description: row.description ?? '',
       answer: mappedAnswer,
       note: row.note ?? '',
-      images: parsedImages,
+      images: mappedImages,
       disabled: row.disabled ?? false,
-        category_comment: row.category_comment ?? "", // 🔴 DODANE
-
+      category_comment: row.category_comment ?? "",
     };
 
     questions[row.category].push(questionObj);
-    images[row.category][row.question_id] = parsedImages;
-
-    // --- LOGOWANIE dla debugu ---
-    console.log(`Loaded question ${row.question_id} for category ${row.category}:`, questionObj);
-  });
+    images[row.category][row.question_id] = mappedImages;
+  }
 
   // --- Najstarsza data pytania ---
   const auditDate = data.length > 0
@@ -82,7 +96,6 @@ console.log("eoeoe",questions)
 
   return { questions, images, auditDate };
 };
-
 
 /* -------------------------------------------------------------------------- */
 /*                                SAVE ANSWER                                 */
@@ -133,13 +146,10 @@ export const uploadImage = async (
 ): Promise<string> => {
   const path = `audits/${auditId}/${sanitizeFileName(category)}/${sanitizeFileName(questionId)}/${Date.now()}-${sanitizeFileName(file.name)}`;
 
-  const { error: uploadError } = await supabase.storage.from('audit-images').upload(path, file);
-  if (uploadError) throw new Error(uploadError.message);
+  const { error } = await supabase.storage.from('audit-images').upload(path, file);
+  if (error) throw new Error(error.message);
 
-  const { data: publicUrlData } = supabase.storage.from('audit-images').getPublicUrl(path);
-  if (!publicUrlData?.publicUrl) throw new Error('Nie udało się wygenerować publicznego URL');
-
-  return publicUrlData.publicUrl;
+  return path; // zapisujemy path w bazie
 };
 
 export const uploadNonCriticalImage = async (auditId: number, file: File): Promise<string> => {
@@ -148,10 +158,7 @@ export const uploadNonCriticalImage = async (auditId: number, file: File): Promi
   const { error } = await supabase.storage.from('audit-images').upload(path, file);
   if (error) throw new Error(error.message);
 
-  const { data } = supabase.storage.from('audit-images').getPublicUrl(path);
-  if (!data?.publicUrl) throw new Error('Nie udało się wygenerować publicznego URL');
-
-  return data.publicUrl;
+  return path;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -283,6 +290,5 @@ export const setCategoryDisabled = async (
 
   return true;
 };
-
 
 export { supabase };

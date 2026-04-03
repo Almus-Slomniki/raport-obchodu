@@ -51,74 +51,100 @@ export const AuditForm: React.FC = () => {
   useEffect(() => localStorage.setItem("lastActiveTab", activeTab), [activeTab]);
 
   /* ------------------ LOAD AUDIT ------------------ */
-  useEffect(() => {
-    if (!auditId) return;
-    if (auditId === 999 && auditorName.toLowerCase() === "admin") return;
+/* ------------------ LOAD AUDIT ------------------ */
+useEffect(() => {
+  if (!auditId) return;
+  if (auditId === 999 && auditorName.toLowerCase() === "admin") return;
 
-    localStorage.setItem("currentAuditId", String(auditId)); // zapis audytu
+  localStorage.setItem("currentAuditId", String(auditId)); // zapis audytu
 
-    const load = async () => {
-      setLoading(true);
-      try {
-        const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
+  const load = async () => {
+    setLoading(true);
+    try {
+      // 1️⃣ Pobierz pytania i obrazy z funkcji pomocniczej
+      const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
 
-        const qState: QuestionsState = {};
-        const iState: ImagesState = {};
+      const qState: QuestionsState = {};
+      const iState: ImagesState = {};
+
+      categories.forEach(cat => {
+        const isCategoryDisabled = loadedQuestions[cat]?.some(q => q.disabled) ?? false;
+
+        qState[cat] = initialQuestions.map((q, i) => {
+          const qid = String(i + 1);
+          const loaded = loadedQuestions[cat]?.find(lq => lq.id === qid);
+
+          return {
+            ...q,
+            id: qid,
+            answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
+            note: loaded?.note ?? "",
+            images: loaded?.images ?? [],
+            disabled: isCategoryDisabled,
+            category_comment: loaded?.category_comment ?? "",
+          };
+        });
+
+        iState[cat] = {};
+        const catImages = loadedImages[cat] || {};
+        Object.entries(catImages).forEach(([qId, imgs]) => {
+          iState[cat][qId.toString()] = imgs as string[];
+        });
+      });
+
+      setQuestions(qState);
+      setImagesState(iState);
+
+      // 2️⃣ Pobierz pełne odpowiedzi z audit_answers
+      const { data: answers } = await supabase
+        .from("audit_answers")
+        .select("*")
+        .eq("audit_id", auditId)
+        .order("id");
+
+      if (answers && answers.length > 0) {
+        const updatedQuestions: QuestionsState = { ...qState };
 
         categories.forEach(cat => {
-          const isCategoryDisabled = loadedQuestions[cat]?.some(q => q.disabled) ?? false;
-
-          qState[cat] = initialQuestions.map((q, i) => {
+          updatedQuestions[cat] = initialQuestions.map((q, i) => {
             const qid = String(i + 1);
-            const loaded = loadedQuestions[cat]?.find(lq => lq.id === qid);
-
+            const loaded = answers.find(a => a.category === cat && a.question_id === qid);
             return {
               ...q,
               id: qid,
               answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
               note: loaded?.note ?? "",
               images: loaded?.images ?? [],
-              disabled: isCategoryDisabled,
+              disabled: loaded?.disabled ?? false,
               category_comment: loaded?.category_comment ?? "",
             };
           });
-
-          iState[cat] = {};
-          const catImages = loadedImages[cat] || {};
-          Object.entries(catImages).forEach(([qId, imgs]) => {
-            iState[cat][qId.toString()] = imgs as string[];
-          });
         });
 
-        setQuestions(qState);
-        setImagesState(iState);
+        setQuestions(updatedQuestions);
 
-        const { data: meta } = await supabase
-          .from("audit_answers")
-          .select("auditor_name, leader_name, is_finished")
-          .eq("audit_id", auditId)
-          .limit(1)
-          .single();
-
-        if (meta?.auditor_name) setAuditorName(meta.auditor_name);
-        if (meta?.leader_name) setLeaderName(meta.leader_name);
+        // Meta dane audytu
+        const meta = answers[0];
+        if (meta.auditor_name) setAuditorName(meta.auditor_name);
+        if (meta.leader_name) setLeaderName(meta.leader_name);
         setIsFinished(meta?.is_finished ?? false);
-
-        const { data: entries } = await supabase
-          .from("non_critical_entries")
-          .select("*")
-          .eq("audit_id", auditId)
-          .order("id");
-
-        setNonCriticalEntries((entries as NonCriticalEntry[]) || []);
-      } finally {
-        setLoading(false);
       }
-    };
 
-    load();
-  }, [auditId, auditorName]);
+      // 3️⃣ Pobierz dane niekrytyczne
+      const { data: entries } = await supabase
+        .from("non_critical_entries")
+        .select("*")
+        .eq("audit_id", auditId)
+        .order("id");
 
+      setNonCriticalEntries((entries as NonCriticalEntry[]) || []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  load();
+}, [auditId, auditorName]);
   /* ------------------ USTAW AKTYWNĄ KATEGORIĘ PO ZAŁADOWANIU PYTAŃ ------------------ */
   useEffect(() => {
     if (!auditId || Object.keys(questions).length === 0) return;
