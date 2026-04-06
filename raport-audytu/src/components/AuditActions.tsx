@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { generatePDF } from "../utils/generatePDF";
 import { exportToExcel } from "../utils/exportToExcel";
-import { generateNonCriticalPDF } from "../utils/GenerateNonCriticalPDF";
+import { generateNonCriticalPDF } from '../utils/generateNonCriticalPDF';
 import { exportAllAuditsToExcel } from "../utils/exportAllAuditsToExcel";
 import "./AuditActions.css";
 
