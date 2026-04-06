@@ -1,15 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { Login } from "./Login";
+import { ChangePassword } from "./ChangePassword";
 import { AuditForm } from "./AuditForm";
 
 export const LoginWrapper: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [resetMode, setResetMode] = useState(false);
 
-  // sprawdzenie sesji przy starcie
   useEffect(() => {
     const checkSession = async () => {
+      const hash = window.location.hash;
+
+      // wykrycie resetu hasła z maila
+      if (hash.includes("type=recovery")) {
+        setResetMode(true);
+        setLoadingSession(false);
+        return;
+      }
+
       const { data } = await supabase.auth.getSession();
       setIsLoggedIn(!!data.session);
       setLoadingSession(false);
@@ -17,7 +27,6 @@ export const LoginWrapper: React.FC = () => {
 
     checkSession();
 
-    // subskrypcja zmian stanu logowania
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsLoggedIn(!!session);
     });
@@ -26,6 +35,10 @@ export const LoginWrapper: React.FC = () => {
   }, []);
 
   if (loadingSession) return <div>Ładowanie...</div>;
+
+  if (resetMode) {
+    return <ChangePassword onDone={() => setResetMode(false)} />;
+  }
 
   if (!isLoggedIn) {
     return <Login onLogin={() => setIsLoggedIn(true)} />;
