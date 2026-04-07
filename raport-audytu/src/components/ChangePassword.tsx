@@ -18,7 +18,10 @@ export const ChangePassword: React.FC<Props> = ({ onDone }) => {
       setMessage("Nie udało się zmienić hasła");
     } else {
       setMessage("Hasło zostało zmienione");
-      setTimeout(onDone, 2000);
+     setTimeout(() => {
+  window.location.hash = "";
+  onDone();
+}, 2000);
     }
   };
 

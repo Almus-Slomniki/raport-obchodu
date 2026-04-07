@@ -9,30 +9,33 @@ export const LoginWrapper: React.FC = () => {
   const [loadingSession, setLoadingSession] = useState(true);
   const [resetMode, setResetMode] = useState(false);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const hash = window.location.hash;
+useEffect(() => {
+  const checkSession = async () => {
+    const hash = window.location.hash;
 
-      // wykrycie resetu hasła z maila
-      if (hash.includes("type=recovery")) {
-        setResetMode(true);
-        setLoadingSession(false);
-        return;
-      }
+    // 🔥 ZAWSZE najpierw to:
+    const { data } = await supabase.auth.getSession();
 
-      const { data } = await supabase.auth.getSession();
+    // wykrycie resetu hasła z maila
+    if (hash.includes("type=recovery")) {
+      setResetMode(true);
       setIsLoggedIn(!!data.session);
       setLoadingSession(false);
-    };
+      return;
+    }
 
-    checkSession();
+    setIsLoggedIn(!!data.session);
+    setLoadingSession(false);
+  };
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session);
-    });
+  checkSession();
 
-    return () => listener.subscription.unsubscribe();
-  }, []);
+  const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    setIsLoggedIn(!!session);
+  });
+
+  return () => listener.subscription.unsubscribe();
+}, []);
 
   if (loadingSession) return <div>Ładowanie...</div>;
 

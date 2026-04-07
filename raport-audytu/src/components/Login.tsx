@@ -132,7 +132,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               cursor: "pointer"
             }}
           >
-            Zapomniałeś hasła?
+         Zmień hasło
           </button>
         </div>
       </div>
