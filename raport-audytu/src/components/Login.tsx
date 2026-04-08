@@ -11,12 +11,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async () => {
     setLoading(true);
     setMessage(null);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (error) {
       setMessage("Nieprawidłowy email lub hasło");
@@ -34,8 +38,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       return;
     }
 
+    setResetLoading(true);
+    setMessage(null);
+
+    // 🔥 KLUCZOWA POPRAWKA
+    const redirectUrl =
+      window.location.hostname === "localhost"
+        ? "http://localhost:3000"
+        : "https://karolije.github.io/RaportAudytu/";
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin
+      redirectTo: redirectUrl,
     });
 
     if (error) {
@@ -44,6 +57,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       setMessage("Mail do zmiany hasła został wysłany");
       setShowResetModal(false);
     }
+
+    // blokada żeby nie spamować kliknięciem
+    setTimeout(() => setResetLoading(false), 10000);
   };
 
   return (
@@ -75,13 +91,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             style={{
-              width: "100%",
+              width: "85%",
               padding: 14,
               marginBottom: 16,
               borderRadius: 12,
-              border: "1px solid #ccc"
+              border: "1px solid #ccc",
             }}
           />
 
@@ -89,13 +105,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             type="password"
             placeholder="Hasło"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             style={{
-              width: "100%",
+              width: "85%",
               padding: 14,
               marginBottom: 16,
               borderRadius: 12,
-              border: "1px solid #ccc"
+              border: "1px solid #ccc",
             }}
           />
 
@@ -116,7 +132,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               color: "#fff",
               borderRadius: 12,
               border: "none",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             {loading ? "Logowanie..." : "Zaloguj"}
@@ -129,10 +145,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               background: "none",
               border: "none",
               color: "#1464f4",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
-         Zmień hasło
+            Zmień hasło
           </button>
         </div>
       </div>
@@ -148,7 +164,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             backgroundColor: "rgba(0,0,0,0.4)",
             display: "flex",
             justifyContent: "center",
-            alignItems: "center"
+            alignItems: "center",
           }}
         >
           <div
@@ -157,7 +173,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               padding: 30,
               borderRadius: 12,
               width: 300,
-              textAlign: "center"
+              textAlign: "center",
             }}
           >
             <h3>Reset hasła</h3>
@@ -173,22 +189,24 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 marginTop: 10,
                 marginBottom: 16,
                 borderRadius: 8,
-                border: "1px solid #ccc"
+                border: "1px solid #ccc",
               }}
             />
 
             <button
               onClick={handleResetPassword}
+              disabled={resetLoading}
               style={{
                 width: "100%",
                 padding: 12,
                 backgroundColor: "#1464f4",
                 color: "#fff",
                 border: "none",
-                borderRadius: 8
+                borderRadius: 8,
+                cursor: resetLoading ? "not-allowed" : "pointer",
               }}
             >
-              Wyślij
+              {resetLoading ? "Wysyłanie..." : "Wyślij"}
             </button>
 
             <button
@@ -197,7 +215,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 marginTop: 10,
                 background: "none",
                 border: "none",
-                cursor: "pointer"
+                cursor: "pointer",
               }}
             >
               Anuluj

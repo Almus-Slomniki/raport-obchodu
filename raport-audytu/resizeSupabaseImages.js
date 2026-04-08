@@ -3,88 +3,97 @@ const sharp = require("sharp");
 
 // --- KONFIGURACJA ---
 const SUPABASE_URL = "https://irrrasxtbyorhdfulaww.supabase.co"; 
-const SUPABASE_KEY = "TWÓJ_SERVICE_ROLE_KEY"; // Wklej swój Service Role Key
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlycnJhc3h0YnlvcmhkZnVsYXd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjU5NTc2NiwiZXhwIjoyMDc4MTcxNzY2fQ.1N09eBNP7VfY-DSVfDBHyxCoM-kbcPlSA7-uzghNeWE";
 const BUCKET = "audit-images";
-const ROOT_FOLDER = "audits";  
+const ROOT_FOLDER = "niekrytyczne";  
 const MAX_WIDTH = 1024;
 const JPEG_QUALITY = 70;
 const PNG_COMPRESSION = 9;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// --- Funkcja zmniejszająca pojedynczy plik tylko jeśli jest za duży ---
+// --- FUNKCJA ---
 async function resizeFile(filePath) {
   try {
-    const { data, error: downloadError } = await supabase.storage.from(BUCKET).download(filePath);
-    if (downloadError) throw downloadError;
+    // 🔹 próbujemy pobrać plik
+    const { data, error } = await supabase.storage.from(BUCKET).download(filePath);
+
+    // 🔥 jeśli to folder → download nie działa → lecimy rekurencyjnie
+    if (error) {
+      if (
+        error.message.includes("Object not found") ||
+        error.message.includes("The resource does not exist")
+      ) {
+        await processFolder(filePath);
+        return;
+      }
+      throw error;
+    }
+
+    // 🔹 to jest plik
+    if (!filePath.match(/\.(jpe?g|png)$/i)) {
+      console.log(`⏭ Pomijanie: ${filePath}`);
+      return;
+    }
 
     const buffer = Buffer.from(await data.arrayBuffer());
+
+    const image = sharp(buffer);
+    const metadata = await image.metadata();
+
+    // 🔥 tylko duże obrazy
+    if (metadata.width <= MAX_WIDTH) {
+      console.log(`⏭ Już mały: ${filePath}`);
+      return;
+    }
+
     let resizedBuffer;
 
-    // sprawdzamy czy to JPEG lub PNG
-    if (filePath.match(/\.(jpe?g)$/i) || filePath.match(/\.png$/i)) {
-      const image = sharp(buffer);
-      const metadata = await image.metadata();
-
-      if (metadata.width > MAX_WIDTH) {
-        if (filePath.match(/\.(jpe?g)$/i)) {
-          resizedBuffer = await image
-            .rotate() // EXIF Orientation
-            .resize({ width: MAX_WIDTH })
-            .jpeg({ quality: JPEG_QUALITY })
-            .toBuffer();
-        } else if (filePath.match(/\.png$/i)) {
-          resizedBuffer = await image
-            .rotate()
-            .resize({ width: MAX_WIDTH })
-            .png({ compressionLevel: PNG_COMPRESSION })
-            .toBuffer();
-        }
-
-        const { error: uploadError } = await supabase.storage.from(BUCKET).upload(filePath, resizedBuffer, { upsert: true });
-        if (uploadError) throw uploadError;
-
-        console.log(`✅ Zmniejszono: ${filePath}`);
-      } else {
-        console.log(`⏭ Plik już ma odpowiednią szerokość: ${filePath}`);
-      }
+    if (filePath.match(/\.(jpe?g)$/i)) {
+      resizedBuffer = await image
+        .rotate()
+        .resize({ width: MAX_WIDTH })
+        .jpeg({ quality: JPEG_QUALITY })
+        .toBuffer();
     } else {
-      console.log(`⏭ Pomijanie pliku (nie JPEG/PNG): ${filePath}`);
+      resizedBuffer = await image
+        .rotate()
+        .resize({ width: MAX_WIDTH })
+        .png({ compressionLevel: PNG_COMPRESSION })
+        .toBuffer();
     }
+
+    await supabase.storage.from(BUCKET).upload(filePath, resizedBuffer, {
+      upsert: true,
+    });
+
+    console.log(`✅ Zmniejszono: ${filePath}`);
+
   } catch (err) {
-    if (err.message.includes("Object not found") || err.message.includes("The resource does not exist")) {
-      await processFolder(filePath); // traktujemy jako folder
-    } else {
-      console.error(`❌ Błąd przy ${filePath}:`, err.message);
-    }
+    console.error(`❌ Błąd: ${filePath}`, err.message);
   }
 }
 
-// --- Funkcja rekurencyjna do przetwarzania folderu ---
+// --- REKURENCJA ---
 async function processFolder(prefix) {
-  const limit = 1000;
-  let offset = 0;
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .list(prefix, { limit: 1000 });
 
-  while (true) {
-    const { data, error } = await supabase.storage.from(BUCKET).list(prefix, { limit, offset });
-    if (error) {
-      console.error(`❌ Błąd listowania folderu ${prefix}:`, error.message);
-      break;
-    }
-    if (!data || data.length === 0) break;
+  if (error) {
+    console.error(`❌ Błąd listy: ${prefix}`, error.message);
+    return;
+  }
 
-    for (const item of data) {
-      const path = prefix ? `${prefix}/${item.name}` : item.name;
-      await resizeFile(path);
-    }
-
-    offset += limit;
+  for (const item of data) {
+    const path = prefix ? `${prefix}/${item.name}` : item.name;
+    await resizeFile(path);
   }
 }
 
-// --- Uruchomienie ---
+// --- START ---
 (async () => {
-  console.log(`📂 Przetwarzanie wszystkich plików w folderze: ${ROOT_FOLDER}`);
+  console.log(`📂 Start: ${ROOT_FOLDER}`);
   await processFolder(ROOT_FOLDER);
-  console.log("\n🎉 Wszystkie pliki przetworzone!");
+  console.log("🎉 DONE");
 })();
