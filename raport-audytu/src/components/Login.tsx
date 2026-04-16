@@ -85,7 +85,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             textAlign: "center",
           }}
         >
-          <h2 style={{ marginBottom: 24 }}>Logowanie</h2>
+          <h2 style={{ marginBottom: 24 }}>Logowanie:</h2>
 
           <input
             type="email"
