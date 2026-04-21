@@ -263,10 +263,18 @@ export const AuditForm: React.FC = () => {
     );
   }
 
+  const goToZeroThreat = () => {
+  window.location.href = "/RaportAudytu/zero-threat.html";
+};
+
   if (!auditId) {
     return (
       <div className="start-wrapper">
+                  <button onClick={goToZeroThreat}>
+  Zero Threat
+</button>
         <div className="start-section">
+
           <button className="start-button" onClick={() => setStartingAudit(true)}>Rozpocznij nowy obchód</button>
           <div className="load-section">
             <div className="load-block">
