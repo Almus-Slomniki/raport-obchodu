@@ -1,3 +1,4 @@
+// AuditForm.tsx
 import React, { useEffect, useState } from "react";
 import { categories, initialQuestions } from "../data/questions";
 import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
@@ -186,12 +187,13 @@ useEffect(() => {
     });
   };
 
-  const addImageFn = async (cat: string, id: string, files: FileList) => {
+  // ✅ POPRAWIONE: File[] zamiast FileList
+  const addImageFn = async (cat: string, id: string, files: File[]) => {
     if (!auditId || isFinished || isCategoryDisabled(cat)) return;
 
     const urls: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      urls.push(await uploadImage(auditId, cat, id, files[i]));
+    for (const file of files) {
+      urls.push(await uploadImage(auditId, cat, id, file));
     }
 
     setQuestions(prev => {
@@ -287,30 +289,38 @@ useEffect(() => {
     );
   }
 
+  const goToZeroThreat = () => {
+  window.location.href = "/RaportAudytu/zero-threat.html";
+};
+
   if (!auditId) {
     return (
       <div className="start-wrapper">
+                  <button onClick={goToZeroThreat}>
+  Zero Threat
+</button>
         <div className="start-section">
+
           <button className="start-button" onClick={() => setStartingAudit(true)}>Rozpocznij nowy obchód</button>
-       <div className="load-section">
-  <div className="load-block">
-    <input
-      type="number"
-      placeholder="Numer audytu"
-      value={inputAuditId}
-      onChange={e => setInputAuditId(e.target.value)}
-    />
-    <button
-      onClick={() => {
-        const id = Number(inputAuditId);
-        setAuditId(id);
-        localStorage.setItem("currentAuditId", String(id));
-      }}
-    >
-      Wczytaj istniejący
-    </button>
-  </div>
-</div>
+          <div className="load-section">
+            <div className="load-block">
+              <input
+                type="number"
+                placeholder="Numer audytu"
+                value={inputAuditId}
+                onChange={e => setInputAuditId(e.target.value)}
+              />
+              <button
+                onClick={() => {
+                  const id = Number(inputAuditId);
+                  setAuditId(id);
+                  localStorage.setItem("currentAuditId", String(id));
+                }}
+              >
+                Wczytaj istniejący
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -352,7 +362,7 @@ useEffect(() => {
           isFinished={isFinished}
           setAnswerFn={setAnswerFn}
           updateNoteFn={updateNoteFn}
-          addImageFn={addImageFn}
+          addImageFn={addImageFn} // ✅ teraz File[]
           setQuestions={setQuestions}
           setImagesState={setImagesState}
         />

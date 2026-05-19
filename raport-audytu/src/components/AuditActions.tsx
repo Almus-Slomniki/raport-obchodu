@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { generatePDF } from "../utils/generatePDF";
 import { exportToExcel } from "../utils/exportToExcel";
-import { generateNonCriticalPDF } from "../utils/GenerateNonCriticalPDF";
+import { generateNonCriticalPDF } from '../utils/GenerateNonCriticalPDF';
 import { exportAllAuditsToExcel } from "../utils/exportAllAuditsToExcel";
-import "./AuditActions.css";
+import "./AuditActions.css"
 
 interface AuditActionsProps {
   auditId: number;

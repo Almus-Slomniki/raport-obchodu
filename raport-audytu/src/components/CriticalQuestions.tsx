@@ -1,4 +1,3 @@
-// CriticalQuestions.tsx
 import React from "react";
 import { QuestionItem } from "./QuestionItem";
 import { QuestionsState, ImagesState } from "./types";
@@ -7,15 +6,14 @@ import { saveAnswer } from "../supabaseAudit";
 interface CriticalQuestionsProps {
   activeCategory: string;
   questions: QuestionsState;
-  setQuestions: any;
+  setQuestions: React.Dispatch<React.SetStateAction<QuestionsState>>;
   imagesState: ImagesState;
-  setImagesState: any;
+  setImagesState: React.Dispatch<React.SetStateAction<ImagesState>>;
   auditId: number;
   isFinished: boolean;
   setAnswerFn: (cat: string, id: string, value: boolean | undefined) => void;
   updateNoteFn: (cat: string, id: string, note: string) => void;
-  addImageFn: (cat: string, id: string, files: FileList) => void;
-}
+addImageFn: (cat: string, id: string, files: File[]) => void;}
 
 export const CriticalQuestions: React.FC<CriticalQuestionsProps> = ({
   activeCategory,
