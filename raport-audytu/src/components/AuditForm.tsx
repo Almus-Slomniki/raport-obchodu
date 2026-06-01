@@ -20,10 +20,8 @@ export const AuditForm: React.FC = () => {
   ];
 
   /* ------------------ STANY ------------------ */
-  const [auditId, setAuditId] = useState<number | null>(() => {
-    const storedId = localStorage.getItem("currentAuditId");
-    return storedId ? Number(storedId) : null;
-  });
+ const [auditId, setAuditId] = useState<number | null>(null);
+ 
   const [inputAuditId, setInputAuditId] = useState("");
   const [activeTab, setActiveTab] = useState<"Krytyczne" | "Niekrytyczne">(() => {
     const t = localStorage.getItem("lastActiveTab");
@@ -97,11 +95,13 @@ useEffect(() => {
       setImagesState(iState);
 
       // 2️⃣ Pobierz pełne odpowiedzi z audit_answers
-      const { data: answers } = await supabase
-        .from("audit_answers")
-        .select("*")
-        .eq("audit_id", auditId)
-        .order("id");
+     const { data: answers, error } = await supabase
+  .from("audit_answers")
+  .select("*")
+  .eq("audit_id", auditId);
+
+console.log("AUDIT ANSWERS ERROR:", error);
+console.log("AUDIT ANSWERS:", answers);
 
       if (answers && answers.length > 0) {
         const updatedQuestions: QuestionsState = { ...qState };
@@ -125,10 +125,21 @@ useEffect(() => {
         setQuestions(updatedQuestions);
 
         // Meta dane audytu
-        const meta = answers[0];
-        if (meta.auditor_name) setAuditorName(meta.auditor_name);
-        if (meta.leader_name) setLeaderName(meta.leader_name);
-        setIsFinished(meta?.is_finished ?? false);
+const meta = answers.find(a => a.leader_name) ?? answers[0];
+
+console.log("META:", meta);
+console.log("LEADER:", meta?.leader_name);
+
+if (meta?.auditor_name) {
+  setAuditorName(meta.auditor_name);
+}
+
+if (meta?.leader_name) {
+  setLeaderName(meta.leader_name);
+  console.log("USTAWIONO LEADER:", meta.leader_name);
+}
+
+setIsFinished(meta?.is_finished ?? false);
       }
 
       // 3️⃣ Pobierz dane niekrytyczne

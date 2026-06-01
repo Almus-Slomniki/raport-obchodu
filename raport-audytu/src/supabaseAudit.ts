@@ -6,15 +6,50 @@ import { supabase } from './supabaseClient';
 /* -------------------------------------------------------------------------- */
 /*                            GET PRIVATE IMAGE URL                            */
 /* -------------------------------------------------------------------------- */
-export const getPrivateImageUrl = async (path: string, expiresIn = 300) => {
-  const { data, error } = await supabase.storage
-    .from('audit-images')
-    .createSignedUrl(path, expiresIn);
-  if (error) {
-    console.error('❌ Błąd generowania signed URL:', error);
+export const getPrivateImageUrl = async (
+  path: string,
+  expiresIn = 300
+): Promise<string | null> => {
+  if (!path) return null;
+
+  try {
+    // obsługa starych rekordów zapisanych jako URL
+    if (path.startsWith("http")) {
+      const publicMarker =
+        "/storage/v1/object/public/audit-images/";
+
+      const signMarker =
+        "/storage/v1/object/sign/audit-images/";
+
+      if (path.includes(publicMarker)) {
+        path = decodeURIComponent(
+          path.split(publicMarker)[1].split("?")[0]
+        );
+      } else if (path.includes(signMarker)) {
+        path = decodeURIComponent(
+          path.split(signMarker)[1].split("?")[0]
+        );
+      }
+    }
+
+    const { data, error } = await supabase.storage
+      .from("audit-images")
+      .createSignedUrl(path, expiresIn);
+
+    if (error) {
+      console.error(
+        "❌ Błąd generowania signed URL:",
+        path,
+        error.message
+      );
+      return null;
+    }
+
+    return data.signedUrl;
+  } catch (err) {
+    console.error("❌ getPrivateImageUrl:", err);
     return null;
   }
-  return data?.signedUrl ?? null;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -59,11 +94,15 @@ export const loadAuditData = async (auditId: number): Promise<{
     }
 
     // --- Pobranie signed URL dla każdego obrazu ---
-    const mappedImages: string[] = [];
-    for (const imgPath of parsedImages) {
-      const signedUrl = await getPrivateImageUrl(imgPath, 300);
-      if (signedUrl) mappedImages.push(signedUrl);
-    }
+const signedUrls = await Promise.all(
+  parsedImages.map(img =>
+    getPrivateImageUrl(img, 300)
+  )
+);
+
+const mappedImages = signedUrls.filter(
+  (url): url is string => !!url
+);
 
     // --- Mapowanie odpowiedzi ---
     const answerValue = row.answer;
@@ -72,16 +111,16 @@ export const loadAuditData = async (auditId: number): Promise<{
       answerValue === false || answerValue === 0 ? false :
       undefined;
 
-    const questionObj: Question & { disabled?: boolean } = {
-      id: row.question_id?.toString() ?? '0',
-      text: row.question_text ?? '[BRAK TEKSTU]',
-      description: row.description ?? '',
-      answer: mappedAnswer,
-      note: row.note ?? '',
-      images: mappedImages,
-      disabled: row.disabled ?? false,
-      category_comment: row.category_comment ?? "",
-    };
+  const questionObj: Question & { disabled?: boolean } = {
+  id: row.question_id?.toString() ?? '0',
+  text: row.question_text ?? '[BRAK TEKSTU]',
+  description: row.description ?? '',
+  answer: mappedAnswer,
+  note: row.note ?? '',
+  images: parsedImages,
+  disabled: row.disabled ?? false,
+  category_comment: row.category_comment ?? "",
+};
 
     questions[row.category].push(questionObj);
     images[row.category][row.question_id] = mappedImages;
@@ -100,13 +139,45 @@ export const loadAuditData = async (auditId: number): Promise<{
 /* -------------------------------------------------------------------------- */
 /*                                SAVE ANSWER                                 */
 /* -------------------------------------------------------------------------- */
-export const saveAnswer = async (auditId: number, category: string, question: Question) => {
+export const saveAnswer = async (
+  auditId: number,
+  category: string,
+  question: Question
+) => {
   try {
-    const imagesString = JSON.stringify(question.images || []);
-    const safeAnswer = question.answer === true || question.answer === false ? question.answer : null;
+    const cleanedImages = (question.images || []).map(img => {
+      if (!img.startsWith("http")) return img;
+
+      const publicMarker =
+        "/storage/v1/object/public/audit-images/";
+
+      const signMarker =
+        "/storage/v1/object/sign/audit-images/";
+
+      if (img.includes(publicMarker)) {
+        return decodeURIComponent(
+          img.split(publicMarker)[1].split("?")[0]
+        );
+      }
+
+      if (img.includes(signMarker)) {
+        return decodeURIComponent(
+          img.split(signMarker)[1].split("?")[0]
+        );
+      }
+
+      return img;
+    });
+
+    const imagesString = JSON.stringify(cleanedImages);
+
+    const safeAnswer =
+      question.answer === true || question.answer === false
+        ? question.answer
+        : null;
 
     const { error } = await supabase
-      .from('audit_answers')
+      .from("audit_answers")
       .upsert(
         {
           audit_id: auditId,
@@ -118,12 +189,16 @@ export const saveAnswer = async (auditId: number, category: string, question: Qu
           images: imagesString,
           updated_at: new Date(),
         },
-        { onConflict: 'audit_id,category,question_id' }
+        {
+          onConflict: "audit_id,category,question_id",
+        }
       );
 
-    if (error) console.error('❌ Błąd zapisu w Supabase:', error);
+    if (error) {
+      console.error("❌ Błąd zapisu w Supabase:", error);
+    }
   } catch (err) {
-    console.error('❌ saveAnswer error:', err);
+    console.error("❌ saveAnswer error:", err);
   }
 };
 
