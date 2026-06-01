@@ -32,19 +32,27 @@ export const AuditForm: React.FC = () => {
   const [imagesState, setImagesState] = useState<ImagesState>({});
   const [isFinished, setIsFinished] = useState(false);
   const [auditorName, setAuditorName] = useState("");
+  const [loggedUserName, setLoggedUserName] = useState("");
+  const [auditAuditorName, setAuditAuditorName] = useState("");
   const [leaderName, setLeaderName] = useState("");
   const [loading, setLoading] = useState(false);
   const [nonCriticalEntries, setNonCriticalEntries] = useState<NonCriticalEntry[]>([]);
   const [startingAudit, setStartingAudit] = useState(false);
 
   /* ------------------ AUDITOR ------------------ */
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        setAuditorName(data.user.user_metadata.full_name || data.user.email || "");
-      }
-    });
-  }, []);
+useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    if (data?.user) {
+      const name =
+        data.user.user_metadata.full_name ||
+        data.user.email ||
+        "";
+
+      setLoggedUserName(name);
+      setAuditorName(name);
+    }
+  });
+}, []);
 
   /* ------------------ ZAPIS TAB ------------------ */
   useEffect(() => localStorage.setItem("lastActiveTab", activeTab), [activeTab]);
@@ -131,7 +139,7 @@ console.log("META:", meta);
 console.log("LEADER:", meta?.leader_name);
 
 if (meta?.auditor_name) {
-  setAuditorName(meta.auditor_name);
+  setAuditAuditorName(meta.auditor_name);
 }
 
 if (meta?.leader_name) {
@@ -156,7 +164,7 @@ setIsFinished(meta?.is_finished ?? false);
   };
 
   load();
-}, [auditId, auditorName]);
+}, [auditId]);
   /* ------------------ USTAW AKTYWNĄ KATEGORIĘ PO ZAŁADOWANIU PYTAŃ ------------------ */
   useEffect(() => {
     if (!auditId || Object.keys(questions).length === 0) return;
@@ -274,7 +282,7 @@ setIsFinished(meta?.is_finished ?? false);
           disabled: false,
           category_comment: null,
           is_finished: false,
-          auditor_name: auditorName,
+          auditor_name: loggedUserName,
           leader_name: leaderName,
           updated_at: now,
         });
@@ -338,15 +346,17 @@ setIsFinished(meta?.is_finished ?? false);
       <AuditActions
         auditId={auditId}
         isFinished={isFinished}
-        onStartNewAudit={() => {
-          setAuditId(null);
-          localStorage.removeItem("currentAuditId");
-        }}
+onStartNewAudit={() => {
+  setAuditId(null);
+  setAuditAuditorName("");
+  setAuditorName(loggedUserName);
+  localStorage.removeItem("currentAuditId");
+}}
         onFinishAudit={() => setIsFinished(true)}
         questions={questions}
         imagesState={imagesState}
-        auditorName={auditorName}
-        leaderName={leaderName}
+  auditorName={auditAuditorName || auditorName}
+  leaderName={leaderName}
       />
 
       <CategorySelector
