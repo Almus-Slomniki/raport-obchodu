@@ -67,6 +67,8 @@ useEffect(() => {
 
   const load = async () => {
     setLoading(true);
+     setAuditAuditorName("");
+  setLeaderName("");
     try {
       // 1️⃣ Pobierz pytania i obrazy z funkcji pomocniczej
       const { questions: loadedQuestions, images: loadedImages } = await loadAuditData(auditId);
@@ -355,8 +357,16 @@ onStartNewAudit={() => {
         onFinishAudit={() => setIsFinished(true)}
         questions={questions}
         imagesState={imagesState}
-  auditorName={auditAuditorName || auditorName}
-  leaderName={leaderName}
+   auditorName={
+    loading
+      ? "Ładowanie..."
+      : (auditAuditorName || auditorName)
+  }
+  leaderName={
+    loading
+      ? "Ładowanie..."
+      : leaderName
+  }
       />
 
       <CategorySelector
