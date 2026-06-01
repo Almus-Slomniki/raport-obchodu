@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { NonCriticalEntry } from "../types";
-import { uploadNonCriticalImage } from "../../supabaseAudit";
+import { uploadNonCriticalImage, getPrivateImageUrl } from "../../supabaseAudit";
 
 const checklistData = {
   "Czystość i porządek": [
@@ -106,20 +106,30 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
     setSuggestions(filtered.slice(0, 5));
   };
 
-  const addImages = async (files: FileList) => {
-    if (disabled) return;
+ const addImages = async (files: FileList) => {
+  if (disabled) return;
 
-    const uploaded: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      try {
-        const url = await uploadNonCriticalImage(auditId, files[i]);
-        uploaded.push(url);
-      } catch (e) {
-        console.error(e);
+  const uploadedUrls: string[] = [];
+
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const path = await uploadNonCriticalImage(
+        auditId,
+        files[i]
+      );
+
+      const signedUrl = await getPrivateImageUrl(path);
+
+      if (signedUrl) {
+        uploadedUrls.push(signedUrl);
       }
+    } catch (e) {
+      console.error(e);
     }
-    setImages(prev => [...prev, ...uploaded]);
-  };
+  }
+
+  setImages(prev => [...prev, ...uploadedUrls]);
+};
 
   const handleAddEntry = () => {
     if (disabled) return;

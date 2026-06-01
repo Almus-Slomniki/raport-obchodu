@@ -1,6 +1,7 @@
 // NonCriticalEntryItem.tsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NonCriticalEntry } from "../types";
+import { getPrivateImageUrl } from "../../supabaseAudit";
 
 type Props = {
   entry: NonCriticalEntry;
@@ -8,21 +9,61 @@ type Props = {
   onRemove: (id?: number) => void;
 };
 
-export const NonCriticalEntryItem: React.FC<Props> = ({ entry, onUpdate, onRemove }) => {
+export const NonCriticalEntryItem: React.FC<Props> = ({
+  entry,
+  onUpdate,
+  onRemove,
+}) => {
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      if (!entry.images?.length) {
+        setImageUrls([]);
+        return;
+      }
+
+      const urls = await Promise.all(
+        entry.images.map(async (img) => {
+          if (
+            img.startsWith("http://") ||
+            img.startsWith("https://") ||
+            img.startsWith("blob:")
+          ) {
+            return img;
+          }
+
+          const signedUrl = await getPrivateImageUrl(img);
+          return signedUrl || img;
+        })
+      );
+
+      setImageUrls(urls.filter(Boolean));
+    };
+
+    loadImages();
+  }, [entry.images]);
+
   const handleAddNote = () => {
-    console.log("entr",entry)
     const note = prompt("Wpisz uwagi:", entry.note || "");
+
     if (note !== null) {
-      onUpdate({ ...entry, note });
+      onUpdate({
+        ...entry,
+        note,
+      });
     }
   };
 
   const handleRemoveImage = (index: number) => {
     if (window.confirm("Czy na pewno chcesz usunąć to zdjęcie?")) {
-      onUpdate({ ...entry, images: entry.images?.filter((_, i) => i !== index) });
+      onUpdate({
+        ...entry,
+        images: entry.images?.filter((_, i) => i !== index),
+      });
     }
   };
-console.log("entryyy", entry)
+
   return (
     <li
       style={{
@@ -66,22 +107,50 @@ console.log("entryyy", entry)
       </button>
 
       {/* Nazwa i linia */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <strong style={{ fontSize: 16 }}>{entry.name || "Brak nazwy"}</strong>
-        <div style={{ fontSize: 14, color: "#333" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+        }}
+      >
+        <strong style={{ fontSize: 16 }}>
+          {entry.name || "Brak nazwy"}
+        </strong>
+
+        <div
+          style={{
+            fontSize: 14,
+            color: "#333",
+          }}
+        >
           Linia: {entry.line || "Brak linii"}
         </div>
+
         {entry.note && (
-          <div style={{ fontStyle: "italic", color: "#555", fontSize: 13 }}>
+          <div
+            style={{
+              fontStyle: "italic",
+              color: "#555",
+              fontSize: 13,
+            }}
+          >
             Uwagi: {entry.note}
           </div>
         )}
       </div>
 
       {/* Zdjęcia */}
-      {entry.images?.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          {entry.images.map((img, i) => (
+      {imageUrls.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginTop: 8,
+          }}
+        >
+          {imageUrls.map((img, i) => (
             <div
               key={i}
               style={{
@@ -96,9 +165,14 @@ console.log("entryyy", entry)
             >
               <img
                 src={img}
-                alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                alt={`Zdjęcie ${i + 1}`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
               />
+
               <button
                 onClick={() => handleRemoveImage(i)}
                 style={{

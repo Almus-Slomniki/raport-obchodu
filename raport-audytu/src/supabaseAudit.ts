@@ -227,14 +227,7 @@ export const uploadImage = async (
 
   return path; // zapisujemy path w bazie
 };
-export const getImageUrlImmediate = async (path: string) => {
-  const { data, error } = await supabase.storage
-    .from("audit-images")
-    .createSignedUrl(path, 3600);
 
-  if (error) return null;
-  return data.signedUrl;
-};
 export const uploadNonCriticalImage = async (auditId: number, file: File): Promise<string> => {
   const path = `niekrytyczne/${auditId}/${Date.now()}-${sanitizeFileName(file.name)}`;
 
@@ -274,7 +267,9 @@ export const fetchFinishedAudits = async (): Promise<{ id: number; date: string 
 /* -------------------------------------------------------------------------- */
 /*                           NON-CRITICAL ENTRIES                             */
 /* -------------------------------------------------------------------------- */
-export const loadNonCriticalEntries = async (auditId: number): Promise<NonCriticalEntry[]> => {
+export const loadNonCriticalEntries = async (
+  auditId: number
+): Promise<NonCriticalEntry[]> => {
   const { data, error } = await supabase
     .from("non_critical_entries")
     .select("*")
@@ -286,7 +281,24 @@ export const loadNonCriticalEntries = async (auditId: number): Promise<NonCritic
     return [];
   }
 
-  return data as NonCriticalEntry[];
+  const result: NonCriticalEntry[] = [];
+
+  for (const row of data || []) {
+    const signedImages = await Promise.all(
+      (row.images || []).map((img: string) =>
+        getPrivateImageUrl(img, 300)
+      )
+    );
+
+    result.push({
+      ...row,
+      images: signedImages.filter(
+        (url): url is string => !!url
+      )
+    });
+  }
+
+  return result;
 };
 
 export const saveNonCriticalEntry = async (auditId: number, entry: NonCriticalEntry): Promise<NonCriticalEntry | null> => {

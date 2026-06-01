@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { categories, initialQuestions } from "../data/questions";
 import { QuestionsState, ImagesState, NonCriticalEntry } from "./types";
-import { loadAuditData, saveAnswer, uploadImage, setCategoryDisabled } from "../supabaseAudit";
+import { loadAuditData, saveAnswer, uploadImage, setCategoryDisabled, getPrivateImageUrl } from "../supabaseAudit";
 import { AuditActions } from "./AuditActions";
 import { supabase } from "../supabaseClient";
 import { NonCriticalEntries } from "./Noncriticalentries";
@@ -11,6 +11,7 @@ import { AuditTabs } from "./AuditTabs";
 import { CategorySelector } from "./CategorySelector";
 import { CriticalQuestions } from "./CriticalQuestions";
 import "./AuditForm.css";
+
 
 export const AuditForm: React.FC = () => {
   const fixedLeadersList = [
@@ -213,29 +214,61 @@ setIsFinished(meta?.is_finished ?? false);
   };
 
   // ✅ POPRAWIONE: File[] zamiast FileList
-  const addImageFn = async (cat: string, id: string, files: File[]) => {
-    if (!auditId || isFinished || isCategoryDisabled(cat)) return;
+const addImageFn = async (
+  cat: string,
+  id: string,
+  files: File[]
+) => {
+  if (!auditId || isFinished || isCategoryDisabled(cat)) return;
 
-    const urls: string[] = [];
-    for (const file of files) {
-      urls.push(await uploadImage(auditId, cat, id, file));
+  const paths: string[] = [];
+  const previewUrls: string[] = [];
+
+  for (const file of files) {
+    const path = await uploadImage(auditId, cat, id, file);
+
+    paths.push(path);
+
+    const signedUrl = await getPrivateImageUrl(path);
+
+    previewUrls.push(signedUrl || path);
+  }
+
+  // zapis do bazy = ścieżki
+  setQuestions(prev => {
+    const updated = prev[cat].map(q =>
+      q.id === id
+        ? {
+            ...q,
+            images: [...(q.images || []), ...paths],
+          }
+        : q
+    );
+
+    const question = updated.find(x => x.id === id);
+
+    if (question) {
+      saveAnswer(auditId, cat, question);
     }
 
-    setQuestions(prev => {
-      const updated = prev[cat].map(q => q.id === id ? { ...q, images: [...q.images, ...urls] } : q);
-      const q = updated.find(x => x.id === id);
-      if (q) saveAnswer(auditId, cat, q);
-      return { ...prev, [cat]: updated };
-    });
-
-    setImagesState(prev => ({
+    return {
       ...prev,
-      [cat]: {
-        ...prev[cat],
-        [id]: [...(prev[cat]?.[id] || []), ...urls]
-      }
-    }));
-  };
+      [cat]: updated,
+    };
+  });
+
+  // UI = signed URL
+  setImagesState(prev => ({
+    ...prev,
+    [cat]: {
+      ...(prev[cat] || {}),
+      [id]: [
+        ...(prev[cat]?.[id] || []),
+        ...previewUrls,
+      ],
+    },
+  }));
+};
 
   const handleToggleCategory = async (cat: string) => {
     if (!auditId || isFinished) return;

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NonCriticalEntry } from "../types";
-import { uploadNonCriticalImage, saveNonCriticalEntry } from "../../supabaseAudit";
+import { uploadNonCriticalImage, saveNonCriticalEntry, getPrivateImageUrl } from "../../supabaseAudit";
 
 type ChecklistItem = {
   id: number;
@@ -27,17 +27,25 @@ export const CategoryChecklist: React.FC<Props> = ({ auditId, categoryName, item
   };
 
   const addImages = async (files: FileList) => {
-    const uploaded: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      try {
-        const url = await uploadNonCriticalImage(auditId, files[i]);
-        uploaded.push(url);
-      } catch (err) {
-        console.error("❌ Błąd uploadu zdjęcia:", err);
-      }
+  const uploaded: string[] = [];
+
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const path = await uploadNonCriticalImage(
+        auditId,
+        files[i]
+      );
+
+      const signedUrl = await getPrivateImageUrl(path);
+
+      uploaded.push(signedUrl || path);
+    } catch (err) {
+      console.error("❌ Błąd uploadu zdjęcia:", err);
     }
-    setImages(prev => [...prev, ...uploaded]);
-  };
+  }
+
+  setImages(prev => [...prev, ...uploaded]);
+};
 
   const handleAddEntries = async () => {
     const entriesToAdd: NonCriticalEntry[] = [];
