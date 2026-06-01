@@ -88,7 +88,9 @@ useEffect(() => {
             id: qid,
             answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
             note: loaded?.note ?? "",
-            images: loaded?.images ?? [],
+           images: typeof loaded?.images === "string"
+  ? JSON.parse(loaded.images || "[]")
+  : loaded?.images ?? [],
             disabled: isCategoryDisabled,
             category_comment: loaded?.category_comment ?? "",
           };
@@ -125,7 +127,9 @@ console.log("AUDIT ANSWERS:", answers);
               id: qid,
               answer: loaded?.answer === true || loaded?.answer === false ? loaded.answer : undefined,
               note: loaded?.note ?? "",
-              images: loaded?.images ?? [],
+            images: typeof loaded?.images === "string"
+  ? JSON.parse(loaded.images || "[]")
+  : loaded?.images ?? [],
               disabled: loaded?.disabled ?? false,
               category_comment: loaded?.category_comment ?? "",
             };

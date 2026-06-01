@@ -13,7 +13,8 @@ interface CriticalQuestionsProps {
   isFinished: boolean;
   setAnswerFn: (cat: string, id: string, value: boolean | undefined) => void;
   updateNoteFn: (cat: string, id: string, note: string) => void;
-addImageFn: (cat: string, id: string, files: File[]) => void;}
+  addImageFn: (cat: string, id: string, files: File[]) => void;
+}
 
 export const CriticalQuestions: React.FC<CriticalQuestionsProps> = ({
   activeCategory,
@@ -26,25 +27,33 @@ export const CriticalQuestions: React.FC<CriticalQuestionsProps> = ({
   setAnswerFn,
   updateNoteFn,
   addImageFn,
-}) => (
-  <div>
-    {questions[activeCategory]?.map(q => (
-      <QuestionItem
-        key={q.id}
-        q={q}
-        activeTab={activeCategory}
-        setAnswer={setAnswerFn}
-        updateNote={updateNoteFn}
-        addImageToQuestion={addImageFn}
-        images={imagesState[activeCategory]?.[q.id] || []}
-        auditId={auditId}
-        imagesState={imagesState}
-        setImagesState={setImagesState}
-        questions={questions}
-        setQuestions={setQuestions}
-        saveAnswer={saveAnswer}
-        isFinished={isFinished}
-      />
-    ))}
-  </div>
-);
+}) => {
+  const categoryQuestions = questions?.[activeCategory] || [];
+
+  if (!categoryQuestions.length) {
+    return <div style={{ padding: 10 }}>Brak pytań w tej kategorii</div>;
+  }
+
+  return (
+    <div>
+      {categoryQuestions.map((q) => (
+        <QuestionItem
+          key={q.id}
+          q={q}
+          activeTab={activeCategory}
+          setAnswer={setAnswerFn}
+          updateNote={updateNoteFn}
+          addImageToQuestion={addImageFn}
+          images={imagesState?.[activeCategory]?.[q.id] || []}
+          auditId={auditId}
+          imagesState={imagesState}
+          setImagesState={setImagesState}
+          questions={questions}
+          setQuestions={setQuestions}
+          saveAnswer={saveAnswer}
+          isFinished={isFinished}
+        />
+      ))}
+    </div>
+  );
+};

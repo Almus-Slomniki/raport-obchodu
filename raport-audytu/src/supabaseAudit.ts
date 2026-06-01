@@ -56,6 +56,7 @@ export const getPrivateImageUrl = async (
 /*                               LOAD AUDIT DATA                               */
 /* -------------------------------------------------------------------------- */
 export const loadAuditData = async (auditId: number): Promise<{
+  
   questions: QuestionsState;
   images: ImagesState;
   auditDate: string | null;
@@ -99,7 +100,7 @@ const signedUrls = await Promise.all(
     getPrivateImageUrl(img, 300)
   )
 );
-
+console.log("RAW IMAGES:", row.images);
 const mappedImages = signedUrls.filter(
   (url): url is string => !!url
 );
@@ -226,7 +227,14 @@ export const uploadImage = async (
 
   return path; // zapisujemy path w bazie
 };
+export const getImageUrlImmediate = async (path: string) => {
+  const { data, error } = await supabase.storage
+    .from("audit-images")
+    .createSignedUrl(path, 3600);
 
+  if (error) return null;
+  return data.signedUrl;
+};
 export const uploadNonCriticalImage = async (auditId: number, file: File): Promise<string> => {
   const path = `niekrytyczne/${auditId}/${Date.now()}-${sanitizeFileName(file.name)}`;
 
