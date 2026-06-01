@@ -225,35 +225,60 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
       </select>
 
       {/* ZDJĘCIA + DODAJ */}
-      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-        <label style={{ cursor: disabled ? "not-allowed" : "pointer", fontSize: 24 }}>
-          📸
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            capture="environment"
-            disabled={disabled}
-            onChange={e => e.target.files && addImages(e.target.files)}
-            style={{ display: "none" }}
-          />
-        </label>
+     {/* ZDJĘCIA + DODAJ */}
+<div
+  style={{
+    display: "flex",
+    gap: 10,
+    marginTop: 10,
+    alignItems: "center",
+  }}
+>
+  <label
+    style={{
+      cursor: disabled ? "not-allowed" : "pointer",
+      fontSize: 24,
+    }}
+  >
+    📸
+    <input
+      type="file"
+      multiple
+      accept="image/*"
+      capture="environment"
+      disabled={disabled}
+      onChange={e => e.target.files && addImages(e.target.files)}
+      style={{ display: "none" }}
+    />
+  </label>
 
-        <button
-          onClick={handleAddEntry}
-          disabled={disabled}
-          style={{
-            padding: "10px 20px",
-            background: "#1464f4",
-            color: "white",
-            borderRadius: 6,
-            fontWeight: "bold",
-            cursor: disabled ? "not-allowed" : "pointer"
-          }}
-        >
-          Dodaj
-        </button>
-      </div>
+  {images.length > 0 && (
+    <span
+      style={{
+        fontSize: 13,
+        color: "#1464f4",
+        fontWeight: 500,
+      }}
+    >
+      Dodano {images.length} zdję{images.length === 1 ? "cie" : images.length < 5 ? "cia" : "ć"}
+    </span>
+  )}
+
+  <button
+    onClick={handleAddEntry}
+    disabled={disabled}
+    style={{
+      padding: "10px 20px",
+      background: "#1464f4",
+      color: "white",
+      borderRadius: 6,
+      fontWeight: "bold",
+      cursor: disabled ? "not-allowed" : "pointer",
+    }}
+  >
+    Dodaj
+  </button>
+</div>
     </div>
   );
 };
