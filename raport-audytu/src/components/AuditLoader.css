@@ -1,4 +1,5 @@
-/* Kontener całego loadera, wycentrowany na ekranie */
+
+
 .audit-loader-wrapper {
   display: flex;
   justify-content: center;

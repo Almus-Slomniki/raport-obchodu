@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import "./AuditLoader.css"
+
 interface AuditLoaderProps {
   auditorName: string;
   leaderName: string;
