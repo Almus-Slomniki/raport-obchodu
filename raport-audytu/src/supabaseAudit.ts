@@ -97,7 +97,7 @@ export const loadAuditData = async (auditId: number): Promise<{
     // --- Pobranie signed URL dla każdego obrazu ---
 const signedUrls = await Promise.all(
   parsedImages.map(img =>
-    getPrivateImageUrl(img, 300)
+    getPrivateImageUrl(img, 43200)
   )
 );
 console.log("RAW IMAGES:", row.images);
@@ -286,7 +286,7 @@ export const loadNonCriticalEntries = async (
   for (const row of data || []) {
     const signedImages = await Promise.all(
       (row.images || []).map((img: string) =>
-        getPrivateImageUrl(img, 300)
+        getPrivateImageUrl(img, 43200)
       )
     );
 

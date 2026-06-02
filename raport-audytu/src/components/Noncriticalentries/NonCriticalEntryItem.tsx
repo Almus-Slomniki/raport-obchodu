@@ -1,4 +1,3 @@
-// NonCriticalEntryItem.tsx
 import React, { useEffect, useState } from "react";
 import { NonCriticalEntry } from "../types";
 import { getPrivateImageUrl } from "../../supabaseAudit";
@@ -15,6 +14,7 @@ export const NonCriticalEntryItem: React.FC<Props> = ({
   onRemove,
 }) => {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const loadImages = async () => {
@@ -23,26 +23,38 @@ export const NonCriticalEntryItem: React.FC<Props> = ({
         return;
       }
 
-      const urls = await Promise.all(
-        entry.images.map(async (img) => {
-          if (
-            img.startsWith("http://") ||
-            img.startsWith("https://") ||
-            img.startsWith("blob:")
-          ) {
-            return img;
-          }
+      setLoading(true);
 
-          const signedUrl = await getPrivateImageUrl(img);
-          return signedUrl || img;
-        })
-      );
+      try {
+        const urls = await Promise.all(
+          entry.images.map(async (img) => {
+            // jeśli już jest pełny URL
+            if (
+              img?.startsWith("http://") ||
+              img?.startsWith("https://") ||
+              img?.startsWith("blob:")
+            ) {
+              return img;
+            }
 
-      setImageUrls(urls.filter(Boolean));
+            // zawsze świeży signed URL
+            const signedUrl = await getPrivateImageUrl(img, 43200);
+
+            return signedUrl || null;
+          })
+        );
+
+        setImageUrls(urls.filter(Boolean) as string[]);
+      } catch (err) {
+        console.error("Błąd ładowania zdjęć:", err);
+        setImageUrls([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadImages();
-  }, [entry.images]);
+  }, [entry.id]); // 🔥 KLUCZOWE: refresh po ID, nie po images
 
   const handleAddNote = () => {
     const note = prompt("Wpisz uwagi:", entry.note || "");
@@ -106,39 +118,29 @@ export const NonCriticalEntryItem: React.FC<Props> = ({
         ×
       </button>
 
-      {/* Nazwa i linia */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4,
-        }}
-      >
+      {/* Dane */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <strong style={{ fontSize: 16 }}>
           {entry.name || "Brak nazwy"}
         </strong>
 
-        <div
-          style={{
-            fontSize: 14,
-            color: "#333",
-          }}
-        >
+        <div style={{ fontSize: 14, color: "#333" }}>
           Linia: {entry.line || "Brak linii"}
         </div>
 
         {entry.note && (
-          <div
-            style={{
-              fontStyle: "italic",
-              color: "#555",
-              fontSize: 13,
-            }}
-          >
+          <div style={{ fontStyle: "italic", color: "#555", fontSize: 13 }}>
             Uwagi: {entry.note}
           </div>
         )}
       </div>
+
+      {/* Loading */}
+      {loading && (
+        <div style={{ fontSize: 12, color: "#888" }}>
+          Ładowanie zdjęć...
+        </div>
+      )}
 
       {/* Zdjęcia */}
       {imageUrls.length > 0 && (
@@ -191,7 +193,6 @@ export const NonCriticalEntryItem: React.FC<Props> = ({
                   alignItems: "center",
                   justifyContent: "center",
                 }}
-                aria-label="Usuń zdjęcie"
               >
                 ×
               </button>
@@ -200,7 +201,14 @@ export const NonCriticalEntryItem: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Dodaj uwagi */}
+      {/* Brak zdjęć */}
+      {!loading && imageUrls.length === 0 && (
+        <div style={{ fontSize: 12, color: "#999" }}>
+          Brak zdjęć
+        </div>
+      )}
+
+      {/* Uwagi */}
       <button
         onClick={handleAddNote}
         style={{
