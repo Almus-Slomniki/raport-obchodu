@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import font from "../fonts/Roboto-Regular-normal";
 import { supabase } from "../supabaseClient";
+import { getPrivateImageUrl } from "../supabaseAudit";
 
 export const generateNonCriticalPDF = async (auditId: number) => {
   try {
@@ -89,6 +90,8 @@ export const generateNonCriticalPDF = async (auditId: number) => {
     // =========================
     // GROUP DATA
     // =========================
+
+    console.log("NON CRITICAL ENTRIES:", entries);
     const grouped: Record<string, typeof entries> = {};
 
     for (const e of entries) {
@@ -124,8 +127,10 @@ export const generateNonCriticalPDF = async (auditId: number) => {
       const text = `• ${entry.name}${entry.note ? " — " + entry.note : ""}`;
       const lines = doc.splitTextToSize(text, W - M * 2 - 10);
 
-      const images = (entry.images || []).slice(0, 4);
-
+const images = Array.isArray(entry.images)
+  ? entry.images.slice(0, 4)
+  : [];
+  
       const maxW = 105;   // 🔥 BIGGER IMAGES
       const maxH = 80;
 
@@ -162,36 +167,63 @@ export const generateNonCriticalPDF = async (auditId: number) => {
       let x = M + 5;
       let col = 0;
 
-      const drawImage = async (url: string) => {
-        const res = await fetch(url);
-        const blob = await res.blob();
-        const img = await loadImage(blob);
-        const imgData = compressImage(img);
+    const drawImage = async (path: string) => {
+  try {
+    const imageUrl = path.startsWith("http")
+      ? path
+      : await getPrivateImageUrl(path);
 
-        let w = img.width;
-        let h = img.height;
+    if (!imageUrl) {
+      console.error("Brak URL dla:", path);
+      return null;
+    }
 
-        const ratio = Math.min(maxW / w, maxH / h);
-        w *= ratio;
-        h *= ratio;
+    const res = await fetch(imageUrl);
 
-        return { imgData, w, h };
-      };
+    if (!res.ok) {
+      console.error("Błąd pobrania:", imageUrl);
+      return null;
+    }
 
-      for (const url of images) {
-        const { imgData, w, h } = await drawImage(url);
+    const blob = await res.blob();
 
-        doc.addImage(imgData, "JPEG", x, y, w, h);
+    const img = await loadImage(blob);
 
-        x += maxW + 12;
-        col++;
+    const imgData = compressImage(img);
 
-        if (col === 2) {
-          col = 0;
-          x = M + 5;
-          y += maxH + 12;
-        }
-      }
+    let w = img.width;
+    let h = img.height;
+
+    const ratio = Math.min(maxW / w, maxH / h);
+
+    w *= ratio;
+    h *= ratio;
+
+    return { imgData, w, h };
+  } catch (err) {
+    console.error("drawImage:", err);
+    return null;
+  }
+};
+
+  for (const img of images) {
+  const result = await drawImage(img);
+
+  if (!result) continue;
+
+  const { imgData, w, h } = result;
+
+  doc.addImage(imgData, "JPEG", x, y, w, h);
+
+  x += maxW + 12;
+  col++;
+
+  if (col === 2) {
+    col = 0;
+    x = M + 5;
+    y += maxH + 12;
+  }
+}
 
       if (col !== 0) {
         y += maxH + 12;

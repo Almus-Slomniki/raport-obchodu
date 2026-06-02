@@ -108,26 +108,22 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
  const addImages = async (files: FileList) => {
   if (disabled) return;
 
-  const uploadedUrls: string[] = [];
+const uploadedUrls: string[] = [];
 
-  for (let i = 0; i < files.length; i++) {
-    try {
-      const path = await uploadNonCriticalImage(
-        auditId,
-        files[i]
-      );
+for (let i = 0; i < files.length; i++) {
+  try {
+ const path = await uploadNonCriticalImage(
+  auditId,
+  files[i]
+);
 
-      const signedUrl = await getPrivateImageUrl(path);
-
-      if (signedUrl) {
-        uploadedUrls.push(signedUrl);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+uploadedUrls.push(path);
+  } catch (e) {
+    console.error(e);
   }
+}
 
-  setImages(prev => [...prev, ...uploadedUrls]);
+setImages(prev => [...prev, ...uploadedUrls]);
 };
 
   const handleAddEntry = () => {

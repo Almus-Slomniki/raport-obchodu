@@ -7,6 +7,7 @@ import {
   updateNonCriticalEntry
 } from "../../supabaseAudit";
 import { NonCriticalEntryForm } from "./NonCriticalEntryForm";
+import { getPrivateImageUrl } from "../../supabaseAudit";
 
 type Props = {
   auditId: number;
@@ -33,6 +34,29 @@ export const NonCriticalEntries: React.FC<Props> = ({
   useEffect(() => {
     loadEntries();
   }, [auditId]);
+
+  const [imageUrls, setImageUrls] = useState<Record<string,string>>({});
+
+
+  useEffect(() => {
+  const loadUrls = async () => {
+    const urls: Record<string,string> = {};
+
+    for (const entry of entries) {
+      for (const img of entry.images || []) {
+        const signed = await getPrivateImageUrl(img);
+
+        if (signed) {
+          urls[img] = signed;
+        }
+      }
+    }
+
+    setImageUrls(urls);
+  };
+
+  loadUrls();
+}, [entries]);
 
   // ---- Dodawanie wpisu ----
   const addEntry = async (entry: NonCriticalEntry) => {
@@ -130,7 +154,7 @@ export const NonCriticalEntries: React.FC<Props> = ({
                       {entry.images.map((img, index) => (
                         <img
                           key={index}
-                          src={img}
+                          src={imageUrls[img]}
                           alt={`Zdjęcie ${index + 1}`}
                           style={{
                             width: 80,
@@ -141,7 +165,7 @@ export const NonCriticalEntries: React.FC<Props> = ({
                             cursor: "pointer",
                             transition: "transform 0.2s"
                           }}
-                          onClick={() => window.open(img, "_blank")}
+                          onClick={() => window.open(imageUrls[img], "_blank")}
                           onMouseEnter={(e) =>
                             (e.currentTarget.style.transform = "scale(1.1)")
                           }
