@@ -91,9 +91,16 @@ export const AuditActions: React.FC<AuditActionsProps> = ({
     }
   };
 
-  const exportNonCriticalPDF = async () => {
+const exportNonCriticalPDF = async () => {
+  console.log("START PDF", auditId);
+
+  try {
     await generateNonCriticalPDF(auditId);
-  };
+    console.log("PDF OK");
+  } catch (e) {
+    console.error("PDF ERROR", e);
+  }
+};
 
   const handleExportAll = async () => {
     try {
