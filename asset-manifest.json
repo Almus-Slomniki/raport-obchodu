@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/RaportAudytu/static/css/main.e42df3b7.css",
-    "main.js": "/RaportAudytu/static/js/main.755f2fcb.js",
+    "main.js": "/RaportAudytu/static/js/main.007f6fef.js",
     "static/js/239.57ef20ab.chunk.js": "/RaportAudytu/static/js/239.57ef20ab.chunk.js",
     "static/js/977.51d06dfc.chunk.js": "/RaportAudytu/static/js/977.51d06dfc.chunk.js",
     "static/js/455.f83efa3a.chunk.js": "/RaportAudytu/static/js/455.f83efa3a.chunk.js",
     "static/js/453.7ffd39fe.chunk.js": "/RaportAudytu/static/js/453.7ffd39fe.chunk.js",
     "index.html": "/RaportAudytu/index.html",
     "main.e42df3b7.css.map": "/RaportAudytu/static/css/main.e42df3b7.css.map",
-    "main.755f2fcb.js.map": "/RaportAudytu/static/js/main.755f2fcb.js.map",
+    "main.007f6fef.js.map": "/RaportAudytu/static/js/main.007f6fef.js.map",
     "239.57ef20ab.chunk.js.map": "/RaportAudytu/static/js/239.57ef20ab.chunk.js.map",
     "977.51d06dfc.chunk.js.map": "/RaportAudytu/static/js/977.51d06dfc.chunk.js.map",
     "455.f83efa3a.chunk.js.map": "/RaportAudytu/static/js/455.f83efa3a.chunk.js.map",
@@ -16,6 +16,6 @@
   },
   "entrypoints": [
     "static/css/main.e42df3b7.css",
-    "static/js/main.755f2fcb.js"
+    "static/js/main.007f6fef.js"
   ]
 }
