@@ -12,174 +12,221 @@ export const generateNonCriticalPDF = async (auditId: number) => {
       .order("id", { ascending: true });
 
     if (error) throw error;
-    if (!entries || entries.length === 0) {
-      alert("Brak niekrytycznych uwag dla tego audytu.");
-      return;
-    }
+    if (!entries?.length) return alert("Brak danych");
 
     const doc = new jsPDF("p", "mm", "a4");
+
     doc.addFileToVFS("Roboto-Regular.ttf", font);
     doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
     doc.setFont("Roboto");
 
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const marginX = 15;
-    const marginY = 15;
-    const lineHeight = 7;
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
 
-    const imgGap = 5;
+    const M = 15;
+    let y = M;
 
-    // 🔥 max rozmiary (proporcjonalne)
-    const maxWidth = 100;
-    const maxHeight = 75;
+    const LINE_H = 6;
 
-    let y = marginY;
+    // =========================
+    // HELPERS
+    // =========================
+    const loadImage = (blob: Blob) =>
+      new Promise<HTMLImageElement>((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(blob);
 
-    // NAGŁÓWEK
-    doc.setFont("Roboto", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(0, 0, 128);
-    doc.text(`Raport niekrytycznych uwag - Obchód ${auditId}`, marginX, y);
-    y += lineHeight * 3;
+        img.src = url;
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(img);
+        };
+      });
 
-    // GRUPOWANIE
-    const grouped: Record<string, typeof entries> = {};
-    entries.forEach(entry => {
-      const line = entry.line || "Brak linii";
-      if (!grouped[line]) grouped[line] = [];
-      grouped[line].push(entry);
-    });
+    const compressImage = (img: HTMLImageElement) => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
 
-    for (const line of Object.keys(grouped)) {
-      if (y + lineHeight * 3 > pageHeight - marginY) {
+      const MAX = 1400;
+
+      let w = img.width;
+      let h = img.height;
+
+      const ratio = Math.min(MAX / w, MAX / h, 1);
+      w *= ratio;
+      h *= ratio;
+
+      canvas.width = w;
+      canvas.height = h;
+
+      ctx.drawImage(img, 0, 0, w, h);
+
+      return canvas.toDataURL("image/jpeg", 0.75);
+    };
+
+    const checkPage = (needed: number) => {
+      if (y + needed > H - 15) {
         doc.addPage();
-        y = marginY;
+        y = 15;
       }
+    };
 
-      // NAGŁÓWEK LINII
-      doc.setFont("Roboto", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(30, 144, 255);
-      doc.text(`Linia: ${line}`, marginX, y);
-      y += lineHeight + 1;
+    // =========================
+    // HEADER BAR
+    // =========================
+    doc.setFillColor(20, 40, 90);
+    doc.rect(0, 0, W, 28, "F");
 
-      // PODNAGŁÓWEK
-      doc.setFont("Roboto", "bold");
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.text("Typ uwagi:", marginX + 5, y);
-      y += lineHeight;
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text("RAPORT NIEKRYTYCZNYCH UWAG", M, 12);
 
-      doc.setFont("Roboto", "normal");
-      doc.setFontSize(12);
+    doc.setFontSize(11);
+    doc.text(`Audit ID: ${auditId}`, M, 20);
 
-      for (const entry of grouped[line]) {
-        const noteText = entry.note ? ` ${entry.note}` : "";
-        const entryText = `• ${entry.name}${noteText}`;
+    y = 40;
 
-        const splitText = doc.splitTextToSize(
-          entryText,
-          pageWidth - marginX * 2
-        );
+    // =========================
+    // GROUP DATA
+    // =========================
+    const grouped: Record<string, typeof entries> = {};
 
-        // TEKST
-        for (const lineText of splitText) {
-          if (y + lineHeight > pageHeight - marginY) {
-            doc.addPage();
-            y = marginY;
-          }
-          doc.text(lineText, marginX + 10, y);
-          y += lineHeight;
-        }
-
-        y += 2;
-
-        // 🔥 ZDJĘCIA Z PROPORCJAMI
-        if (entry.images && entry.images.length > 0) {
-          let x = marginX + 10;
-          let imagesInRow = 0;
-
-          for (const imgUrl of entry.images) {
-            try {
-              const imgResp = await fetch(imgUrl);
-              const blob = await imgResp.blob();
-              const reader = new FileReader();
-
-              const imgData: string = await new Promise(resolve => {
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(blob);
-              });
-
-              // 🔥 pobranie proporcji
-              const img = new Image();
-              img.src = imgData;
-
-              await new Promise(res => {
-                img.onload = res;
-              });
-
-              let width = img.width;
-              let height = img.height;
-
-              // 🔥 skalowanie proporcjonalne
-              const ratio = Math.min(maxWidth / width, maxHeight / height);
-              width *= ratio;
-              height *= ratio;
-
-              // sprawdzenie strony
-              if (y + height > pageHeight - marginY) {
-                doc.addPage();
-                y = marginY;
-                x = marginX + 10;
-                imagesInRow = 0;
-              }
-
-              doc.addImage(imgData, "JPEG", x, y, width, height);
-
-              imagesInRow++;
-              x += maxWidth + imgGap;
-
-              // max 2 w rzędzie
-              if (imagesInRow === 2) {
-                imagesInRow = 0;
-                x = marginX + 10;
-                y += maxHeight + imgGap;
-              }
-            } catch (err) {
-              console.error("Błąd ładowania obrazu:", err);
-            }
-          }
-
-          if (imagesInRow !== 0) {
-            y += maxHeight + imgGap;
-          }
-
-          y += 5;
-        }
-
-        if (y > pageHeight - marginY) {
-          doc.addPage();
-          y = marginY;
-        }
-      }
-
-      y += lineHeight * 2;
+    for (const e of entries) {
+      const key = e.line || "Brak linii";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(e);
     }
 
-    const now = new Date();
-    const dateString = `${now
-      .getDate()
-      .toString()
-      .padStart(2, "0")}-${(now.getMonth() + 1)
-      .toString()
-      .padStart(2, "0")}-${now.getFullYear()}`;
+    // =========================
+    // SECTION HEADER
+    // =========================
+    const drawSectionHeader = (title: string) => {
+      const h = 16;
 
-    doc.save(
-      `Zagadnienia-niekrytyczne-${auditId ?? "XXX"}-${dateString}.pdf`
-    );
-  } catch (err) {
-    console.error("Błąd generowania PDF niekrytycznych:", err);
-    alert("Błąd generowania PDF niekrytycznych.");
+      checkPage(h + 5);
+
+      doc.setFillColor(245, 247, 252);
+      doc.setDrawColor(200);
+      doc.roundedRect(M, y, W - M * 2, h, 3, 3, "FD");
+
+      doc.setFontSize(15);
+      doc.setTextColor(25, 70, 170);
+
+      doc.text(title, W / 2, y + 10, { align: "center" });
+
+      y += h + 6;
+    };
+
+    // =========================
+    // ENTRY (TEXT - BETTER TYPOGRAPHY)
+    // =========================
+    const renderEntry = async (entry: any) => {
+      const text = `• ${entry.name}${entry.note ? " — " + entry.note : ""}`;
+      const lines = doc.splitTextToSize(text, W - M * 2 - 10);
+
+      const images = (entry.images || []).slice(0, 4);
+
+      const maxW = 105;   // 🔥 BIGGER IMAGES
+      const maxH = 80;
+
+      const LINE_H = 6;
+
+      // =========================
+      // PRE-CALC HEIGHT (CRITICAL)
+      // =========================
+      const imgRows = images.length ? Math.ceil(images.length / 2) : 0;
+      const imgHeight = imgRows * (maxH + 12);
+
+      const textHeight = lines.length * LINE_H + 10;
+
+      const totalHeight = textHeight + imgHeight + 15;
+
+      checkPage(totalHeight);
+
+      // =========================
+      // TEXT (IMPROVED STYLE)
+      // =========================
+      doc.setFontSize(12);              // 🔥 slightly bigger
+      doc.setTextColor(30, 30, 30);
+
+      for (const l of lines) {
+        doc.text(l, M + 5, y);
+        y += LINE_H;
+      }
+
+      y += 6;
+
+      // =========================
+      // IMAGES (BIGGER + CLEAN GRID)
+      // =========================
+      let x = M + 5;
+      let col = 0;
+
+      const drawImage = async (url: string) => {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const img = await loadImage(blob);
+        const imgData = compressImage(img);
+
+        let w = img.width;
+        let h = img.height;
+
+        const ratio = Math.min(maxW / w, maxH / h);
+        w *= ratio;
+        h *= ratio;
+
+        return { imgData, w, h };
+      };
+
+      for (const url of images) {
+        const { imgData, w, h } = await drawImage(url);
+
+        doc.addImage(imgData, "JPEG", x, y, w, h);
+
+        x += maxW + 12;
+        col++;
+
+        if (col === 2) {
+          col = 0;
+          x = M + 5;
+          y += maxH + 12;
+        }
+      }
+
+      if (col !== 0) {
+        y += maxH + 12;
+      }
+
+      y += 8;
+
+      // separator
+      doc.setDrawColor(235);
+      doc.line(M, y, W - M, y);
+      y += 6;
+    };
+
+    // =========================
+    // MAIN LOOP
+    // =========================
+    for (const line of Object.keys(grouped)) {
+      drawSectionHeader(`LINIA: ${line}`);
+
+      for (const entry of grouped[line]) {
+        await renderEntry(entry);
+      }
+
+      y += 6;
+    }
+
+    // =========================
+    // SAVE
+    // =========================
+    const d = new Date();
+    const date = `${d.getDate()}-${d.getMonth() + 1}-${d.getFullYear()}`;
+
+    doc.save(`Raport-Niekrytyczny-${auditId}-${date}.pdf`);
+  } catch (e) {
+    console.error(e);
+    alert("Błąd PDF");
   }
 };

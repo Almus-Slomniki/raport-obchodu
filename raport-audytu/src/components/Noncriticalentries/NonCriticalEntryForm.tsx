@@ -76,7 +76,6 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
   const [images, setImages] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<ChecklistItem[]>([]);
 
-  const isCustom = line === "inne";
 
   useEffect(() => {
     setLine(activeCategory);
@@ -86,7 +85,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
     if (disabled) return;
 
     setOpenCategory(prev => (prev === cat ? null : cat));
-    setLine(cat);
+    // setLine(cat);
     setName("");
     setSuggestions([]);
   };
@@ -135,12 +134,12 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
     if (disabled) return;
     if (!name.trim()) return;
 
-    onAdd({
-      name: name.trim(),
-      line: isCustom ? "inne" : line,
-      images,
-      note: ""
-    });
+   onAdd({
+  name: name.trim(),
+  line: line.trim(),
+  images,
+  note: ""
+});
 
     setName("");
     setImages([]);
@@ -190,7 +189,7 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
                       onClick={() => {
                         if (disabled) return;
                         setName(text);
-                        setLine(cat);
+                        // setLine(cat);
                         setOpenCategory(null);
                       }}
                     >
@@ -214,17 +213,33 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
       />
 
       {/* SELECT */}
-      <select
-        value={line}
-        onChange={e => setLine(e.target.value)}
-        disabled={disabled}
-        style={{ marginTop: 10, width: "100%", padding: 8 }}
-      >
-        <option value={line}>{line}</option>
-        {!isCustom && <option value="inne">➕ Inne</option>}
-      </select>
+     <div style={{ marginTop: 10 }}>
+  <label
+    style={{
+      display: "block",
+      marginBottom: 4,
+      fontSize: 12,
+      color: "#666",
+      fontWeight: 600,
+    }}
+  >
+    Linia
+  </label>
 
-      {/* ZDJĘCIA + DODAJ */}
+  <input
+    value={line}
+    onChange={e => setLine(e.target.value)}
+    placeholder="Np. CMG2, CMG3..."
+    disabled={disabled}
+    style={{
+      width: "100%",
+      padding: 10,
+      borderRadius: 6,
+      border: "1px solid #ccc",
+      fontSize: 14,
+    }}
+  />
+</div>
      {/* ZDJĘCIA + DODAJ */}
 <div
   style={{
