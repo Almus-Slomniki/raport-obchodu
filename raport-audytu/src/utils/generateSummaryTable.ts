@@ -12,7 +12,7 @@ export const generateSummaryTable = (
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 4;
 
-  let y = 20;
+  let y = 10;
   const baseRowHeight = 12; // zmniejszone z 16
   const startX = margin;
 
@@ -111,35 +111,46 @@ export const generateSummaryTable = (
       doc.setTextColor(0);
     }
 
-    categories.forEach((cat, ci) => {
-      const qData = questions[cat]?.[qi];
-      const colX = startX + firstColWidth + ci * otherColWidth;
+  categories.forEach((cat, ci) => {
+  const qData = questions[cat]?.[qi];
+  const colX = startX + firstColWidth + ci * otherColWidth;
 
-      if (qData?.disabled) {
-        doc.setFillColor(240, 240, 240);
-        doc.rect(colX, y, otherColWidth, rowHeight, "F");
+  // Wyłączona linia → szare tło + kreskowanie
+  if (qData?.disabled) {
+    doc.setFillColor(240, 240, 240);
+    doc.rect(colX, y, otherColWidth, rowHeight, "F");
 
-        doc.setDrawColor(200, 200, 200);
-        for (let py = y; py < y + rowHeight; py += 3) { // mniejszy odstęp linii
-          doc.line(colX, py, colX + otherColWidth, py);
-        }
-      }
+    doc.setDrawColor(200, 200, 200);
+    for (let py = y; py < y + rowHeight; py += 3) {
+      doc.line(colX, py, colX + otherColWidth, py);
+    }
+  }
 
-      let symbol = "";
-      if (qData?.answer === true) symbol = "V";
-      if (qData?.answer === false) symbol = "X";
+  // V/X tylko dla aktywnych linii
+  if (!qData?.disabled) {
+    let symbol = "";
 
-      if (symbol === "V") doc.setTextColor(0, 150, 0);
-      if (symbol === "X") doc.setTextColor(200, 0, 0);
+    if (qData?.answer === true) symbol = "V";
+    if (qData?.answer === false) symbol = "X";
 
-      doc.setFont("Roboto", "bold");
-      doc.setFontSize(16); // mniejsze z 18
-      doc.text(symbol, colX + otherColWidth / 2, y + rowHeight / 2 + 3, { align: "center" });
+    if (symbol === "V") doc.setTextColor(0, 150, 0);
+    if (symbol === "X") doc.setTextColor(200, 0, 0);
 
-      doc.setFont("Roboto", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(0);
-    });
+    doc.setFont("Roboto", "bold");
+    doc.setFontSize(16);
+    doc.text(
+      symbol,
+      colX + otherColWidth / 2,
+      y + rowHeight / 2 + 3,
+      { align: "center" }
+    );
+
+    doc.setTextColor(0);
+  }
+
+  doc.setFont("Roboto", "normal");
+  doc.setFontSize(11);
+});
 
     y += rowHeight;
     doc.line(startX, y, startX + totalWidth, y);
