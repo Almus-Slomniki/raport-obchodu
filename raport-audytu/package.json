@@ -2,7 +2,7 @@
   "name": "raport-audytu",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://karolije.github.io/RaportAudytu",
+  "homepage": "https://almus-slomniki.github.io/raport-obchodu",
   "dependencies": {
     "@supabase/supabase-js": "^2.81.1",
     "@testing-library/dom": "^10.4.1",

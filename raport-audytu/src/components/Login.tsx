@@ -45,7 +45,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const redirectUrl =
       window.location.hostname === "localhost"
         ? "http://localhost:3000"
-        : "https://karolije.github.io/RaportAudytu/";
+        : "https://almus-slomniki.github.io/raport-obchodu/";
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
