@@ -101,7 +101,52 @@ const exportNonCriticalPDF = async () => {
     console.error("PDF ERROR", e);
   }
 };
+const checkUnfinishedNonCritical = async () => {
+  try {
+    const { data: nonCritical, error: nonCriticalError } = await supabase
+      .from("non_critical_entries")
+      .select("audit_id");
 
+    if (nonCriticalError) {
+      alert("Błąd pobierania wpisów niekrytycznych.");
+      return;
+    }
+
+    const { data: finishedAudits, error: finishedError } = await supabase
+      .from("audit_answers")
+      .select("audit_id")
+      .eq("is_finished", true);
+
+    if (finishedError) {
+      alert("Błąd pobierania audytów.");
+      return;
+    }
+
+    const nonCriticalIds = [
+      ...new Set(nonCritical.map(x => x.audit_id))
+    ];
+
+    const finishedIds = new Set(
+      finishedAudits.map(x => x.audit_id)
+    );
+
+    const missing = nonCriticalIds.filter(
+      id => !finishedIds.has(id)
+    );
+
+    if (missing.length === 0) {
+      alert("Wszystkie audyty z wpisami niekrytycznymi są zakończone.");
+      return;
+    }
+
+    alert(
+      `Niezakończone audyty z wpisami niekrytycznymi:\n${missing.join(", ")}`
+    );
+  } catch (e) {
+    console.error(e);
+    alert("Błąd sprawdzania audytów.");
+  }
+};
   const handleExportAll = async () => {
     try {
       const { data, error } = await supabase
@@ -143,7 +188,12 @@ const exportNonCriticalPDF = async () => {
           <button className="audit-button btn-new" onClick={startNewAudit}>
             Nowy obchód
           </button>
-
+{/* <button
+  className="audit-button btn-excel"
+  onClick={checkUnfinishedNonCritical}
+>
+  🔍 Sprawdź niezamknięte
+</button> */}
           <button
             className={`audit-button ${isFinished ? 'btn-disabled' : 'btn-finish'}`}
             onClick={finishAudit}
