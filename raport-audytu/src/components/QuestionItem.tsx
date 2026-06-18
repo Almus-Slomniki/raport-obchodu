@@ -5,6 +5,14 @@ import { ImageUploader } from './ImageUploader';
 import { ImagePreviewList } from './ImagePreviewList';
 import imageCompression from 'browser-image-compression';
 
+const MAX_NOTE_LENGTH = 500;
+
+const sanitizeInput = (text: string) =>
+  text
+    .replace(/<[^>]*>/g, "")
+    .replace(/javascript:/gi, "")
+    .replace(/\.\.\//g, "");
+
 type Props = {
   q: Question;
   activeTab: string;
@@ -244,24 +252,43 @@ export const QuestionItem: React.FC<Props> = ({
       {showNote && (
         <div style={{ width: '100%' }}>
           <textarea
-            placeholder="Wpisz własną uwagę..."
-            value={q.note || ''}
-            onChange={(e) => updateNote(activeTab, q.id, e.target.value)}
-            disabled={isFinished}
-            style={{
-              width: '100%',
-              padding: 8,
-              borderRadius: 4,
-              border: '1px solid #ccc',
-              marginTop: 6,
-              marginBottom: 4,
-              resize: 'vertical',
-              fontSize: 14,
-              backgroundColor: isFinished ? '#f5f5f5' : 'white',
-              minHeight: 60,
-              lineHeight: 1.4,
-            }}
-          />
+  placeholder="Wpisz własną uwagę..."
+  value={q.note || ''}
+  maxLength={MAX_NOTE_LENGTH}
+  onChange={(e) => {
+    const value = sanitizeInput(e.target.value).substring(
+      0,
+      MAX_NOTE_LENGTH
+    );
+
+    updateNote(activeTab, q.id, value);
+  }}
+  disabled={isFinished}
+  style={{
+    width: '100%',
+    padding: 8,
+    borderRadius: 4,
+    border: '1px solid #ccc',
+    marginTop: 6,
+    marginBottom: 4,
+    resize: 'vertical',
+    fontSize: 14,
+    backgroundColor: isFinished ? '#f5f5f5' : 'white',
+    minHeight: 60,
+    lineHeight: 1.4,
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere'
+  }}
+/>
+<div
+  style={{
+    textAlign: "right",
+    fontSize: 11,
+    color: "#666"
+  }}
+>
+  {(q.note || "").length}/{MAX_NOTE_LENGTH}
+</div>
           {!isFinished && (
             <button
               onClick={() => {
