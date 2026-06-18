@@ -56,7 +56,15 @@ const categories = Object.keys(checklistData) as Category[];
 const allChecklistItems: ChecklistItem[] = categories.flatMap(cat =>
   checklistData[cat].map(text => ({ category: cat, text }))
 );
+const MAX_NOTE_LENGTH = 500;
 
+const sanitizeInput = (text: string): string => {
+  return text
+    .replace(/<[^>]*>/g, "")
+    .replace(/javascript:/gi, "")
+    .replace(/\.\.\//g, "")
+    .trim();
+};
 type Props = {
   auditId: number;
   activeCategory: string;
@@ -90,20 +98,26 @@ export const NonCriticalEntryForm: React.FC<Props> = ({
     setSuggestions([]);
   };
 
-  const handleNameChange = (value: string) => {
-    if (disabled) return;
+const handleNameChange = (value: string) => {
+  if (disabled) return;
 
-    setName(value);
-    if (!value.trim()) {
-      setSuggestions([]);
-      return;
-    }
+  if (value.length > MAX_NOTE_LENGTH) {
+    value = value.substring(0, MAX_NOTE_LENGTH);
+  }
 
-    const filtered = allChecklistItems.filter(item =>
-      item.text.toLowerCase().includes(value.toLowerCase())
-    );
-    setSuggestions(filtered.slice(0, 5));
-  };
+  setName(value);
+
+  if (!value.trim()) {
+    setSuggestions([]);
+    return;
+  }
+
+  const filtered = allChecklistItems.filter(item =>
+    item.text.toLowerCase().includes(value.toLowerCase())
+  );
+
+  setSuggestions(filtered.slice(0, 5));
+};
 
  const addImages = async (files: FileList) => {
   if (disabled) return;
@@ -126,23 +140,40 @@ uploadedUrls.push(path);
 setImages(prev => [...prev, ...uploadedUrls]);
 };
 
-  const handleAddEntry = () => {
-    if (disabled) return;
-    if (!name.trim()) return;
+ const handleAddEntry = () => {
+  if (disabled) return;
 
-   onAdd({
-  name: name.trim(),
-  line: line.trim(),
-  images,
-  note: ""
-});
+  const safeName = sanitizeInput(name);
+  const safeLine = sanitizeInput(line);
 
-    setName("");
-    setImages([]);
-    setSuggestions([]);
-    setOpenCategory(null);
-    setLine(activeCategory);
-  };
+  if (!safeName) {
+    alert("Treść uwagi jest wymagana");
+    return;
+  }
+
+  if (safeName.length > MAX_NOTE_LENGTH) {
+    alert(`Maksymalna długość uwagi to ${MAX_NOTE_LENGTH} znaków`);
+    return;
+  }
+
+  if (safeLine.length > 20) {
+    alert("Nazwa linii może mieć maksymalnie 20 znaków");
+    return;
+  }
+
+  onAdd({
+    name: safeName,
+    line: safeLine,
+    images,
+    note: ""
+  });
+
+  setName("");
+  setImages([]);
+  setSuggestions([]);
+  setOpenCategory(null);
+  setLine(activeCategory);
+};
 
   return (
     <div style={{ marginTop: 20, opacity: disabled ? 0.6 : 1 }}>
@@ -200,13 +231,31 @@ setImages(prev => [...prev, ...uploadedUrls]);
       })}
 
       {/* INPUT */}
-      <input
-        value={name}
-        placeholder="Treść uwagi"
-        onChange={e => handleNameChange(e.target.value)}
-        disabled={disabled}
-        style={{ width: "100%", padding: 8, marginTop: 10 }}
-      />
+    <>
+  <input
+    value={name}
+    maxLength={MAX_NOTE_LENGTH}
+    placeholder="Treść uwagi"
+    onChange={e => handleNameChange(e.target.value)}
+    disabled={disabled}
+    style={{
+      width: "100%",
+      padding: 8,
+      marginTop: 10
+    }}
+  />
+
+  <div
+    style={{
+      textAlign: "right",
+      fontSize: 12,
+      color: "#666",
+      marginTop: 4
+    }}
+  >
+    {name.length}/{MAX_NOTE_LENGTH}
+  </div>
+</>
 
       {/* SELECT */}
      <div style={{ marginTop: 10 }}>
@@ -222,19 +271,26 @@ setImages(prev => [...prev, ...uploadedUrls]);
     Linia
   </label>
 
-  <input
-    value={line}
-    onChange={e => setLine(e.target.value)}
-    placeholder="Np. CMG2, CMG3..."
-    disabled={disabled}
-    style={{
-      width: "100%",
-      padding: 10,
-      borderRadius: 6,
-      border: "1px solid #ccc",
-      fontSize: 14,
-    }}
-  />
+<input
+  value={line}
+  maxLength={20}
+  onChange={e => {
+    const value = e.target.value
+      .replace(/[^a-zA-Z0-9-_ ]/g, "")
+      .substring(0, 20);
+
+    setLine(value);
+  }}
+  placeholder="Np. CMG2, CMG3..."
+  disabled={disabled}
+  style={{
+    width: "100%",
+    padding: 10,
+    borderRadius: 6,
+    border: "1px solid #ccc",
+    fontSize: 14,
+  }}
+/>
 </div>
      {/* ZDJĘCIA + DODAJ */}
 <div
